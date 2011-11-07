@@ -1,4 +1,5 @@
 import hashlib
+import os
 import tempfile
 
 class RawFileEncapsulation(object):
@@ -66,3 +67,6 @@ class RawFileEncapsulation(object):
         
         original = open(self.original_filename, "wb")
         original.write(self._encode_data(self.data))
+        
+        # Remove the backup.
+        os.remove(backup_filename)
