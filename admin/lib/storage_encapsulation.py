@@ -96,7 +96,7 @@ class DESFileEncapsulation(RawFileEncapsulation):
             return ""
         
         from Crypto.Cipher import DES
-        des = DES.new(self.des_key, DES.MODE_ECB)
+        des = DES.new(self.des_key, DES.MODE_CBC)
         data_padded = des.decrypt(data)
         
         padding_length = ord(data_padded[-1])
@@ -109,7 +109,7 @@ class DESFileEncapsulation(RawFileEncapsulation):
     
     def _encode_data(self, data):
         from Crypto.Cipher import DES
-        des = DES.new(self.des_key, DES.MODE_ECB)
+        des = DES.new(self.des_key, DES.MODE_CBC)
         
         if self.magic_check:
             data = self.MAGIC + data
