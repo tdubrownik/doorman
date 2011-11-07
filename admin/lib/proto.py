@@ -19,7 +19,6 @@ class Proto(object):
         print >> stderr, 'Serial port ready'
     def send(self, command):
         cmd = str(command) + '\n'
-        print cmd
         self.fd.write(cmd)
     def recv(self):
         line = self.fd.readline()
