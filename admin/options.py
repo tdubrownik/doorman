@@ -7,6 +7,8 @@ json = './cards.json'
 csv = './cards.csv'
 
 storage = 'csv'
+#whether the storage method should be encrypted
+storage_encrypt = True
 
 mid_bytes = 8
 uid_bytes = 4
