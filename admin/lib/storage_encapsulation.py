@@ -1,6 +1,13 @@
+# because admin.lib.password uses admin.options -_-
+if __name__ == "__main__":
+    import sys
+    sys.path.append("d:\\Development\\Projects\\doorman\\admin")
+
 import hashlib
 import os
 import tempfile
+
+import password
 
 class RawFileEncapsulation(object):
     """
@@ -71,11 +78,46 @@ class RawFileEncapsulation(object):
         # Remove the backup.
         os.remove(backup_filename)
 
+class DESFileEncapsulation(RawFileEncapsulation):
+    def __init__(self, filename):
+        try:
+            import Crypto
+        except:
+            raise Exception("PyCrypto not installed!")
+            
+        self.des_key = password.get_des_storage_key(filename)
+        super(DESFileEncapsulation, self).__init__(filename)
+    
+    def _decode_data(self, data):
+        if data == "":
+            print "Input file empty. Assuming actually empty file."
+            return ""
+        
+        from Crypto.Cipher import DES
+        des = DES.new(self.des_key, DES.MODE_ECB)
+        data_padded = des.decrypt(data)
+        
+        padding_length = ord(data_padded[-1])
+        return data_padded[:-padding_length]
+    
+    def _encode_data(self, data):
+        from Crypto.Cipher import DES
+        des = DES.new(self.des_key, DES.MODE_ECB)
+        
+        padding_length = 8 - len(data) % 8
+        data_padded = data + chr(padding_length) * padding_length
+        
+        return des.encrypt(data_padded)
+
 if __name__ == "__main__":
-    r = RawFileEncapsulation("d:/dupa.txt")
+    r = DESFileEncapsulation("d:/dupa.txt")
     r.begin_transaction()
     
-    n = int(r.data)
+    try:
+        n = int(r.data)
+    except:
+        n = 0
+    
     print "ass! %i" % n
     r.data = str(n + 1)
     
