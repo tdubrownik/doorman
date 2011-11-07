@@ -1,11 +1,11 @@
-import sha
+import hashlib
 import getpass
 
 import options
 
 def get_token():
     password = getpass.getpass('Password:')
-    return sha.new(password).hexdigest()[:options.token_bytes]
+    return hashlib.sha1(password).hexdigest()[:options.token_bytes]
 
 def get_pin():
     pin = getpass.getpass('PIN:')
