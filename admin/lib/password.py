@@ -1,6 +1,7 @@
-import getpass
-import options
 import sha
+import getpass
+
+import options
 
 def get_token():
     password = getpass.getpass('Password:')

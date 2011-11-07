@@ -1,6 +1,7 @@
+import shelve
+
 import csvstore
 import jsonstore
-import shelve
 import options
 
 if options.storage == 'shelve':

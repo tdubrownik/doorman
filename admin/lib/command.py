@@ -1,4 +1,5 @@
 from collections import namedtuple
+
 from options import *
 
 Property = namedtuple('Property', ['name', 'to_str', 'from_str', 'length', 'default'])

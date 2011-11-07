@@ -1,8 +1,10 @@
 #!/usr/bin/env python
+
+import options
+
 from lib.proto import Proto
 from lib.command import Command
 from lib.password import get_token
-import options
 
 token = get_token()
 p = Proto(url=options.url)

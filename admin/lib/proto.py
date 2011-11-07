@@ -1,8 +1,10 @@
-import serial
-import options
-from command import Command
 from time import sleep
 from sys import stderr
+
+import serial
+
+from command import Command
+import options
 
 class RemoteException(Exception):
     pass

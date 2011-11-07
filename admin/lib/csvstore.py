@@ -1,5 +1,6 @@
-from UserDict import IterableUserDict
 import csv
+
+from UserDict import IterableUserDict
 
 class Storage(IterableUserDict):
     def __init__(self, name):
