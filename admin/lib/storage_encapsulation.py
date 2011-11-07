@@ -32,7 +32,7 @@ class RawFileEncapsulation(object):
         """
         return original_path + "_OHSHITSOMETHINGWENTWRONG"
     
-    def begin_transaction(self, storage=None):
+    def begin_transaction(self):
         """
         Creates a temporary file that we'll use before writing all.
         """
@@ -70,3 +70,16 @@ class RawFileEncapsulation(object):
         
         # Remove the backup.
         os.remove(backup_filename)
+
+if __name__ == "__main__":
+    r = RawFileEncapsulation("d:/dupa.txt")
+    r.begin_transaction()
+    
+    n = int(r.data)
+    print "ass! %i" % n
+    r.data = str(n + 1)
+    
+    print "try to modify the assfile, see it fail!"
+    raw_input()
+    
+    r.end_transaction()
