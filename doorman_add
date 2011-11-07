@@ -1,0 +1,26 @@
+#!/usr/bin/env python
+from sys import stderr, argv
+from lib.proto import Proto
+from lib.actions import *
+from lib.storage import add_user
+from lib.password import get_token, get_pin
+import argparse
+if __name__ == '__main__':
+  url = argv[2] if len(argv) > 2 else None
+  uname = argv[1]
+  token = get_token()
+  pin = get_pin()
+  proto = Proto(url)
+  print 'Please swipe token'
+  frame = scan(token=token, proto=proto)
+  assert(frame.command == 'S')
+  if frame.uid:
+    print >> stderr, 'E: Token already in use (user %d)' % frame.uid
+    exit(1)
+  status = add(token, frame.mid, pin, proto=proto)
+  if status.command == 'C':
+      add_user(uname, frame.mid, status.uid)
+      print 'User %s added successfully (uid=%d)' % (uname, status.uid)
+  else:
+      print >> stderr, 'Unknown error:', str(status)
+      exit(1)
