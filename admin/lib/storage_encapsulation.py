@@ -79,13 +79,15 @@ class RawFileEncapsulation(object):
         os.remove(backup_filename)
 
 class DESFileEncapsulation(RawFileEncapsulation):
-    def __init__(self, filename):
+    MAGIC = "it's a kind of magic!"
+    def __init__(self, filename, magic_check=True):
         try:
             import Crypto
         except:
             raise Exception("PyCrypto not installed!")
             
         self.des_key = password.get_des_storage_key(filename)
+        self.magic_check = magic_check
         super(DESFileEncapsulation, self).__init__(filename)
     
     def _decode_data(self, data):
@@ -98,12 +100,19 @@ class DESFileEncapsulation(RawFileEncapsulation):
         data_padded = des.decrypt(data)
         
         padding_length = ord(data_padded[-1])
-        return data_padded[:-padding_length]
+        data_unpadded = data_padded[:-padding_length]
+        
+        if self.magic_check and not data_unpadded.startswith(self.MAGIC):
+            raise Exception("Bad magic! Did you mistype a key?")
+        
+        return data_unpadded[len(self.MAGIC):]
     
     def _encode_data(self, data):
         from Crypto.Cipher import DES
         des = DES.new(self.des_key, DES.MODE_ECB)
         
+        if self.magic_check:
+            data = self.MAGIC + data
         padding_length = 8 - len(data) % 8
         data_padded = data + chr(padding_length) * padding_length
         
