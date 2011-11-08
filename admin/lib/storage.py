@@ -3,13 +3,23 @@ import shelve
 import csvstore
 import jsonstore
 import options
+import storage_encapsulation
+
+if options.storage_encrypt == True
+    encapsulation_class = storage_encapsulation.DESFileEncapsulation
+else:
+    encapsulation_class = storage_encapsulation.RawFileEncapsulation
 
 if options.storage == 'shelve':
+    if options.storage_encrypt == True:
+        raise NotImplementedError("Who the fuck uses Shelve anyway.")
     storage = shelve.open(options.shelf)
 if options.storage == 'json':
-    storage = jsonstore.Storage(options.json)
+    encapsulation = encapsulation_class(options.json)
+    storage = jsonstore.Storage(encapsulation)
 if options.storage == 'csv':
-    storage = csvstore.Storage(options.csv)
+    encapsulation = encapsulation_class(options.csv)
+    storage = csvstore.Storage(encapsulation)
 
 nobody = (None, '-unknown-')
 

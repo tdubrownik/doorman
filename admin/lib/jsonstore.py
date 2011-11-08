@@ -3,10 +3,11 @@ import json
 from UserDict import IterableUserDict
 
 class Storage(IterableUserDict):
-    def __init__(self, name, **kw):
-        self.filename = name
+    def __init__(self, encapsulation):
+        self.encapsulation = encapsulation
+        self.encapsulation.begin_transaction()
         try:
-            stored = json.load(open(name))
+            stored = json.loads(self.encapsulation.data)
         except IOError:
             stored = {}
         IterableUserDict.__init__(self, stored)
@@ -19,4 +20,6 @@ class Storage(IterableUserDict):
     def __del__(self):
         self.sync()
     def sync(self):
-        json.dump(self.data, open(self.filename, 'w'), indent=4)
+        self.encapsulation.data = json.dumps(self.data, indent=4)
+        self.encapsulation.end_transaction()
+        self.encapsulation.begin_transaction()
