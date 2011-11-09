@@ -60,16 +60,26 @@ void setup()  {
 /** Main loop. */
 void loop(){   
   //Communication with mifare reader.
-  rf_comm();    
+  unsigned long rfid;
+  unsigned int id;
+  if (rf_comm(&rfid,&id)){
+    unsigned int pin;
+    //User rfid is authorized, read pin here!
+    if (emem_check_pin(id,pin)) {
+       //Open door 
+    } else {
+       //Wrong pin 
+    }    
+  }
   //Communication with PC (optional).
   pc_comm();
 }
 
 /**
  * Function reads record with given id from EEPROM. 
- * @param adr Address of record to read.
- * @param data Pointer to space for data.
- * @param id Pointer to space for id.
+ * @param adr Address of record to read, or NULL.
+ * @param data Pointer to space for data, or NULL.
+ * @param id Pointer to space for id, or NULL.
  * @return Function returns true when data was red, false otherwise.
  */
 boolean emem_get_record(unsigned int adr,unsigned long * data,unsigned int * id,unsigned int * pin){
@@ -81,9 +91,15 @@ boolean emem_get_record(unsigned int adr,unsigned long * data,unsigned int * id,
   for (int ii=0;ii<EMEM_RECORD_SIZE;ii++){
     rec[ii] = EEPROM.read(adr*EMEM_RECORD_SIZE+ii);
   }
-  (*id)=rec[0];
-  (*data)=(long(rec[1])<<24)|(long(rec[2])<<16)|(long(rec[3])<<8)|(long(rec[4]));
-  (*pin)=(rec[5]<<8)|(rec[6]);
+  if (id != NULL){  
+    (*id)=rec[0];
+  }
+  if (data != NULL){
+    (*data)=(long(rec[1])<<24)|(long(rec[2])<<16)|(long(rec[3])<<8)|(long(rec[4]));
+  }
+  if (pin != NULL){
+    (*pin)=(rec[5]<<8)|(rec[6]);
+  }
   return true;  
 }
 
@@ -101,6 +117,18 @@ boolean emem_del_record(unsigned int adr){
     EEPROM.write(adr*EMEM_RECORD_SIZE+ii,0);
   }
   return true;  
+}
+
+/**
+ * Checks if pin is correct.
+ * @param if User id.
+ * @param pin Pin code.
+ * @return True if pin is correct, false otherwise.
+ */
+boolean emem_check_pin(unsigned int id, unsigned int pin){
+  unsigned int epin;
+  emem_get_record(id,NULL,NULL,&pin);
+  return (epin==pin);
 }
 
 /**
@@ -426,10 +454,13 @@ boolean pc_parse(){
 
 /**
  * Handles communication with rfid reader.
+ * @return Returns true when authorized user rfid was red, false otherwise.
  */
-void rf_comm() {
+boolean rf_comm(unsigned long * p_rfid,unsigned int * p_id) {
   static unsigned long last_millis = 0;
   static unsigned long new_millis = 0;
+  (*p_id) = EMEM_INV_ADR;
+  (*p_rfid) = 0;
   new_millis = millis();
   if (new_millis<last_millis){
     last_millis=new_millis; 
@@ -446,10 +477,17 @@ void rf_comm() {
       if (pc_send_flag){
         pc_send_flag=false;
         pc_print('S',data,id);  
-      
+        
+      }
+      if (id!=EMEM_INV_ADR){
+        //User is authorized
+        (*p_id) = id;
+        (*p_rfid) = data;
+        return true;
       }
     }
   } 
+  return false;
 }
 
 /**
