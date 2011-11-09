@@ -1,20 +1,20 @@
-import StringIO
 from UserDict import IterableUserDict
+from StringIO import StringIO
 
 import csv
 
 class Storage(IterableUserDict):
-    def __init__(self, file):
+    def __init__(self, encapsulation):
         self.encapsulation = encapsulation
         self.encapsulation.begin_transaction()
         try:
             stored = {x[0]: [x[1], x[2]] 
-                for x in csv.reader([self.encapsulation.data])}
+                for x in csv.reader(StringIO(self.encapsulation.data))}
         except IOError:
             stored = {}
         IterableUserDict.__init__(self, stored)
     def sync(self):
-        f = StringIO.StringIO()
+        f = StringIO()
         csv.writer(f).writerows(
             [c, u, name] for c, (u, name) in self.data.iteritems())
         
