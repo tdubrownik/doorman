@@ -5,7 +5,7 @@ import jsonstore
 import options
 import storage_encapsulation
 
-if options.storage_encrypt == True
+if options.storage_encrypt == True:
     encapsulation_class = storage_encapsulation.DESFileEncapsulation
 else:
     encapsulation_class = storage_encapsulation.RawFileEncapsulation
