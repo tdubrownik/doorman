@@ -12,9 +12,13 @@
 
 #include <NewSoftSerial.h>
 #include <EEPROM.h>
+#include <sha256.h>
 
 //Defines
-/** Record size. */
+/** 
+ * Record size. 
+ * @todo This should be EMEM_HASH_SIZE+1, but since we are low on epprom we save and check only first 6 bytes of hash. 
+ */
 #define EMEM_RECORD_SIZE (7)
 /** First record ID. */
 #define ENEM_MIN_ADR (1)
@@ -22,12 +26,14 @@
 #define EMEM_MAX_ADR (100)
 /** Invalid record ID. */
 #define EMEM_INV_ADR (0)
+/** Size of stored hash. */
+#define EMEM_HASH_SIZE (8)
 /** Flag that indicates (if defined) verbose mode (for diagnostic) */
-//#define DEBUG 1
+#define DEBUG 1
 /** Max length of message from rfid reader. */
 #define RF_MAX_BYTES (32)
 /** Max length of message from or to PC. */
-#define PC_MAX_BYTES (2+1+8+1+4+1+4+1+8+1)
+#define PC_MAX_BYTES (2+1+4+1+16+1+8+1)
 /** Period for quering rfid reader. */
 #define RF_PERIOD_MS (500)
 //Global var
@@ -42,9 +48,14 @@ unsigned long pc_token = 0x386855c3;
 /** Flag set when next scan should send mid. */
 boolean pc_send_flag = false;
 
+//Old protocol
 //$g,00000000,0000,0000,386855c3
 //$p,00000000,0000,0000,386855c3
 //$a,00000000,0000,0000,386855c3
+//Protocol with hashes
+//$g,0000,0000000000000000,386855c3
+//$p,0000,0000000000000000,386855c3
+//$a,0000,0000000000000000,386855c3
 
 /** Setup function. */
 void setup()  {
@@ -60,17 +71,17 @@ void setup()  {
 /** Main loop. */
 void loop(){   
   //Communication with mifare reader.
-  unsigned long rfid;
-  unsigned int id;
-  if (rf_comm(&rfid,&id)){
-    unsigned int pin;
+//  unsigned long rfid;
+//  unsigned int id;
+//  if (rf_comm(&rfid,&id)){
+//    unsigned int pin;
     //User rfid is authorized, read pin here!
-    if (emem_check_pin(id,pin)) {
+//    if (emem_check_pin(id,pin)) {
        //Open door 
-    } else {
+//    } else {
        //Wrong pin 
-    }    
-  }
+//    }    
+//  }
   //Communication with PC (optional).
   pc_comm();
 }
@@ -78,27 +89,18 @@ void loop(){
 /**
  * Function reads record with given id from EEPROM. 
  * @param adr Address of record to read, or NULL.
- * @param data Pointer to space for data, or NULL.
- * @param id Pointer to space for id, or NULL.
+ * @param id Red id from memory.
+ * @param data Pointer to space reserved for hash.
  * @return Function returns true when data was red, false otherwise.
  */
-boolean emem_get_record(unsigned int adr,unsigned long * data,unsigned int * id,unsigned int * pin){
+boolean emem_get_record(unsigned int adr,unsigned int * id,unsigned char * data){
   if (adr>EMEM_MAX_ADR || adr<ENEM_MIN_ADR) {
     //Address out of range.
     return false;  
   }
-  byte rec[EMEM_RECORD_SIZE];
-  for (int ii=0;ii<EMEM_RECORD_SIZE;ii++){
-    rec[ii] = EEPROM.read(adr*EMEM_RECORD_SIZE+ii);
-  }
-  if (id != NULL){  
-    (*id)=rec[0];
-  }
-  if (data != NULL){
-    (*data)=(long(rec[1])<<24)|(long(rec[2])<<16)|(long(rec[3])<<8)|(long(rec[4]));
-  }
-  if (pin != NULL){
-    (*pin)=(rec[5]<<8)|(rec[6]);
+  (*id)=EEPROM.read(adr*EMEM_RECORD_SIZE);
+  for (int ii=1;ii<EMEM_RECORD_SIZE;ii++){
+    *(data+ii-1) = EEPROM.read(adr*EMEM_RECORD_SIZE+ii);
   }
   return true;  
 }
@@ -120,18 +122,6 @@ boolean emem_del_record(unsigned int adr){
 }
 
 /**
- * Checks if pin is correct.
- * @param if User id.
- * @param pin Pin code.
- * @return True if pin is correct, false otherwise.
- */
-boolean emem_check_pin(unsigned int id, unsigned int pin){
-  unsigned int epin;
-  emem_get_record(id,NULL,NULL,&pin);
-  return (epin==pin);
-}
-
-/**
  * Finds record with given ID. 
  * @param id Record id.
  * @return Address of found record or EMEM_INV_ADR.
@@ -150,25 +140,15 @@ unsigned int emem_find_id(unsigned int id){
  * @param data Data to be found.
  * @return Address of found record or EMEM_INV_ADR.
  */
-unsigned int emem_find_data(unsigned long data) {  
+unsigned int emem_find_data(unsigned char * data) {  
   for (int adr=ENEM_MIN_ADR;adr<=EMEM_MAX_ADR;adr++){    
-    if (EEPROM.read(adr*EMEM_RECORD_SIZE+1)==(data>>24 & 0x0ff)){
-      if (EEPROM.read(adr*EMEM_RECORD_SIZE+2)==(data>>16 & 0x0ff)){
-        if (EEPROM.read(adr*EMEM_RECORD_SIZE+3)==(data>>8 & 0x0ff)){
-          if (EEPROM.read(adr*EMEM_RECORD_SIZE+4)==(data & 0x0ff)){
-            return adr;    
-          } else {
-            continue; 
-          } 
-        } else {
-          continue; 
-        }       
+    for (int ii=1;ii<EMEM_RECORD_SIZE;ii++){
+      if (EEPROM.read(adr*EMEM_RECORD_SIZE+ii)==*(data+ii)){
+        return adr;
       } else {
-        continue; 
-      } 
-    } else {
-      continue; 
-    }        
+        break;
+      }
+    }    
   } 
   return EMEM_INV_ADR; 
 }
@@ -192,22 +172,15 @@ unsigned int emem_find_free(){
  * @param id Record id.
  * @return True if data was written, false otherwise.
  */
-boolean emem_set_record(unsigned long data,unsigned int id,unsigned int pin){
+boolean emem_set_record(unsigned int id,unsigned char * data){
   if (id>EMEM_MAX_ADR || id<ENEM_MIN_ADR) return false;  
-  byte rec[EMEM_RECORD_SIZE];
-  rec[0]=id;
-  rec[1]=(data>>24) & 0x0ff;
-  rec[2]=(data>>16) & 0x0ff;
-  rec[3]=(data>>8) & 0x0ff;
-  rec[4]=(data) & 0x0ff;  
-  rec[5]=(pin>>8) & 0x0ff;
-  rec[6]=pin & 0x0ff;
-  for (int ii=0;ii<EMEM_RECORD_SIZE;ii++) {
-    EEPROM.write(id*EMEM_RECORD_SIZE+ii,rec[ii]);  
+  EEPROM.write(id*EMEM_RECORD_SIZE,(unsigned char)(id&0x0ff));
+  for (int ii=1;ii<EMEM_RECORD_SIZE;ii++) {
+    EEPROM.write(id*EMEM_RECORD_SIZE+ii,*(data+ii));  
   }
   //Ok, now try to read and compare.
-  for (int ii=0;ii<EMEM_RECORD_SIZE;ii++) {
-    if (EEPROM.read(id*EMEM_RECORD_SIZE+ii) != rec[ii]){
+  for (int ii=1;ii<EMEM_RECORD_SIZE;ii++) {
+    if (EEPROM.read(id*EMEM_RECORD_SIZE+ii) != *(data+ii)){
       return false;
     }
   }  
@@ -218,23 +191,26 @@ boolean emem_set_record(unsigned long data,unsigned int id,unsigned int pin){
 /**
  * Prints all records in EEPROM memory.
  */
-void emem_print(){
+void emem_print(){  
   unsigned int id;  
-  unsigned long data;
-  unsigned int pin;
+  unsigned char data[EMEM_HASH_SIZE];
+  for (int ii=0;ii<EMEM_HASH_SIZE;ii++){
+    data[ii]=0;
+  }
   for (int ii=ENEM_MIN_ADR;ii<=EMEM_MAX_ADR;ii++){
-    if (emem_get_record(ii,&data,&id,&pin)){
+    if (emem_get_record(ii,&id,data)){
       Serial.print("REC,");
       Serial.print(ii,HEX);
       Serial.print(',');
       Serial.print(id,HEX);
-      Serial.print(',');
-      Serial.print(data,HEX);   
-      Serial.print(',');
-      Serial.println(pin,HEX);
+      for (int jj=0;jj<EMEM_HASH_SIZE;jj++){
+        Serial.print(',');
+        Serial.print(*(data+jj),HEX);   
+      }
+      Serial.println();
     } else {
       Serial.println("Error reading EEPROM"); 
-    }
+    }    
   }
 }
 
@@ -301,12 +277,14 @@ boolean rf_parse() {
  * @param data Message data.
  * @param id Message id.
  */
-void pc_print(char code,unsigned long data,unsigned int id) {
-  char buf[PC_MAX_BYTES+1];
+void pc_print(char code,unsigned int id,unsigned char * data) {
+  char buf[PC_MAX_BYTES+1+1];
   unsigned long token = 0;
   unsigned int pin = 0;
-  snprintf(buf,PC_MAX_BYTES+1,"$%c,%08lx,%04x,%04x,%08lx\n",code,data,id,pin,token);
+  snprintf(buf,PC_MAX_BYTES+1,"$%c,%04x,%02x%02x%02x%02x%02x%02x%02x%02x,%08lx\n",code,id,*(data),*(data+1),\
+  *(data+2),*(data+3),*(data+4),*(data+5),*(data+6),*(data+7),token);  
   Serial.print(buf);
+  Serial.println("Printing done");
 }
 
 /**
@@ -323,25 +301,24 @@ void pc_comm(){
     pc_bytes[PC_MAX_BYTES]=0;
     char code = 0;
     unsigned int id = 0;
-    unsigned long data = 0;
-    unsigned int pin =0;
+    unsigned char data[EMEM_HASH_SIZE];
+    for (int ii=0;ii<EMEM_HASH_SIZE;ii++){
+      data[ii]=0;
+    }
     unsigned long token = 0;
-    sscanf(pc_bytes,"$%c,%8lx,%4lx,%4lx,%8lx\n",&code,&data,&id,&pin,&token);
+    int sres = sscanf(pc_bytes,"$%c,%4x,%02x%02x%02x%02x%02x%02x%02x%02x,%8lx\n",&code,&id,data+0,data+1,data+2,data+3,data+4,data+5,data+6,data+7,&token);    
 #ifdef DEBUG    
-    Serial.print("CODE: ");
+    Serial.print("SCANNED: ");
+    Serial.print(sres);
+    Serial.print(", CODE: ");
     Serial.print(code,BYTE);
-    Serial.print(" DATA: ");
-    Serial.print(data>>24 & 0x0ff,HEX);    
-    Serial.print(',');
-    Serial.print(data>>16 & 0x0ff,HEX);    
-    Serial.print(',');
-    Serial.print(data>>8 & 0x0ff,HEX);
-    Serial.print(',');
-    Serial.print(data & 0x0ff,HEX);
-    Serial.print(" ID: ");
+    Serial.print(", ID: ");
     Serial.print(id,HEX);
-    Serial.print(" PIN: ");
-    Serial.print(pin,HEX);    
+    Serial.print(", HASH: ");
+    for (int ii=0;ii<EMEM_HASH_SIZE;ii++){
+      Serial.print(data[ii],HEX);
+      Serial.print(',');
+    }  
     Serial.print(" TOKEN: ");    
     Serial.print(token>>24 & 0x0ff,HEX);    
     Serial.print(',');
@@ -356,38 +333,38 @@ void pc_comm(){
 #ifdef DEBUG    
         Serial.println("WRONG TOKEN");
 #endif //DEBUG
-      pc_print('E',data,id);  
+//      pc_print('E',data,id);  
     } else if (pc_bytes[1]=='A' || pc_bytes[1]=='a'){
       //Add
       if (id==0) id=emem_find_free();
       if (emem_find_data(data)!=EMEM_INV_ADR){
-        //Already have this data
-        pc_print('E',data,id);
-      } else if (emem_set_record(data,id,pin)){
-#ifdef DEBUG    
+//        //Already have this data
+        pc_print('E',id,data);
+      } else if (emem_set_record(id,data)){
+//#ifdef DEBUG    
         Serial.println("ADD DONE");
-#endif //DEBUG
-        pc_print('C',data,id);  
+//#endif //DEBUG
+        pc_print('C',id,data);  
       } else {
-#ifdef DEBUG    
+//#ifdef DEBUG    
         Serial.println("ADD FAILED");
-#endif //DEBUG
-        pc_print('E',data,id);  
+//#endif //DEBUG
+        pc_print('E',id,data);  
       }
     } else if (pc_bytes[1]=='R' || pc_bytes[1]=='r'){
-        //Revoke
-      if (id==0) id=emem_find_data(data);
-      if (emem_del_record(id)){
-#ifdef DEBUG    
-        Serial.println("REVOKE DONE");  
-#endif //DEBUG    
-        pc_print('K',data,id);
-      } else {
-#ifdef DEBUG    
-        Serial.println("REVOKE FAILED");
-#endif //DEBUG    
-        pc_print('E',data,id);
-      }
+//        //Revoke
+//      if (id==0) id=emem_find_data(data);
+//      if (emem_del_record(id)){
+//#ifdef DEBUG    
+//        Serial.println("REVOKE DONE");  
+//#endif //DEBUG    
+//        pc_print('K',data,id);
+//      } else {
+//#ifdef DEBUG    
+//        Serial.println("REVOKE FAILED");
+//#endif //DEBUG    
+//        pc_print('E',data,id);
+//      }
     } else if (pc_bytes[1]=='Z' || pc_bytes[1]=='z'){
       //Zero eeprom 
       Serial.println("ZERO");
@@ -473,18 +450,18 @@ boolean rf_comm(unsigned long * p_rfid,unsigned int * p_id) {
     if(rf_bytes[2] > 2 && rf_bytes[3]==0x82){
       //Message has id
       unsigned long data=(long(rf_bytes[8])<<24)|(long(rf_bytes[7])<<16)|(long(rf_bytes[6])<<8)|(long(rf_bytes[5]));
-      unsigned int id = emem_find_data(data);            
-      if (pc_send_flag){
-        pc_send_flag=false;
-        pc_print('S',data,id);  
-        
-      }
-      if (id!=EMEM_INV_ADR){
-        //User is authorized
-        (*p_id) = id;
-        (*p_rfid) = data;
-        return true;
-      }
+//      unsigned int id = emem_find_data(data);            
+//      if (pc_send_flag){
+//        pc_send_flag=false;
+//        pc_print('S',data,id);  
+//        
+//      }
+//      if (id!=EMEM_INV_ADR){
+//        //User is authorized
+//        (*p_id) = id;
+//        (*p_rfid) = data;
+//        return true;
+//      }
     }
   } 
   return false;
