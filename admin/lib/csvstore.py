@@ -24,7 +24,9 @@ class Storage(IterableUserDict):
         
         self.encapsulation.begin_transaction()
     def __del__(self):
-        self.sync()
+        #TODO: fix this shit
+        #self.sync()
+        pass
     def __setitem__(self, k, v):
         IterableUserDict.__setitem__(self, k, v)
         self.sync()
