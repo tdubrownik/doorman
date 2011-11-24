@@ -67,23 +67,66 @@ void setup()  {
   Serial.println("Ready");
 #endif //DEBUG  
 }
-
+/** Idle. */
+#define STATE_IDLE 0
+/** Waiting for pin code. */
+#define STATE_PIN 1
+/** Waiting for mifare. */
+#define STATE_MIFARE 2
+/** State variable. */
+int state=STATE_IDLE;
+int state_time=0;
+#define STATE_TIMEOUT 1000
 /** Main loop. */
-void loop(){   
-  //Communication with mifare reader.
-//  unsigned long rfid;
-//  unsigned int id;
-//  if (rf_comm(&rfid,&id)){
-//    unsigned int pin;
-    //User rfid is authorized, read pin here!
-//    if (emem_check_pin(id,pin)) {
-       //Open door 
-//    } else {
-       //Wrong pin 
-//    }    
-//  }
+void loop(){     
+  unsigned long pin=0;
+  unsigned long rfid=0;
+  unsigned long current_time;
+  while (1) {
+    switch (state){
+      case STATE_PIN:
+        if (pin_comm(&pin)){
+          Serial.print("Got pin.");
+          Serial.println(pin);        
+          //Pin code was read 
+          //Check if authorised
+          state=STATE_IDLE;
+          continue;
+        }
+        current_time=millis();
+        if (state_time<current_time){
+           if (current_time-state_time>STATE_TIMEOUT){
+             Serial.println("Timeout");             
+             state=STATE_IDLE;
+             continue;
+           }
+        } else {
+           if (state_time-current_time>STATE_TIMEOUT){
+             Serial.println("Timeout");
+             state=STATE_IDLE;
+             continue;
+           }        
+        }
+        break;
+      case STATE_MIFARE:
+        if (rf_comm(&rfid)){
+          Serial.println("Got rfid.");
+          Serial.println(rfid);
+          //Rfid was read
+          state=STATE_PIN; 
+          state_time=millis();
+        }
+        break; 
+      case STATE_IDLE:    
+      default:
+        pin=0;
+        rfid=0;
+        state=STATE_MIFARE;
+        break; 
+    }  
   //Communication with PC (optional).
   pc_comm();
+  }
 }
 
 /**
@@ -333,38 +376,38 @@ void pc_comm(){
 #ifdef DEBUG    
         Serial.println("WRONG TOKEN");
 #endif //DEBUG
-//      pc_print('E',data,id);  
+      pc_print('E',id,data);  
     } else if (pc_bytes[1]=='A' || pc_bytes[1]=='a'){
       //Add
       if (id==0) id=emem_find_free();
       if (emem_find_data(data)!=EMEM_INV_ADR){
-//        //Already have this data
+        //Already have this data
         pc_print('E',id,data);
       } else if (emem_set_record(id,data)){
-//#ifdef DEBUG    
+#ifdef DEBUG    
         Serial.println("ADD DONE");
-//#endif //DEBUG
+#endif //DEBUG
         pc_print('C',id,data);  
       } else {
-//#ifdef DEBUG    
+#ifdef DEBUG    
         Serial.println("ADD FAILED");
-//#endif //DEBUG
+#endif //DEBUG
         pc_print('E',id,data);  
       }
     } else if (pc_bytes[1]=='R' || pc_bytes[1]=='r'){
 //        //Revoke
-//      if (id==0) id=emem_find_data(data);
-//      if (emem_del_record(id)){
-//#ifdef DEBUG    
-//        Serial.println("REVOKE DONE");  
-//#endif //DEBUG    
-//        pc_print('K',data,id);
-//      } else {
-//#ifdef DEBUG    
-//        Serial.println("REVOKE FAILED");
-//#endif //DEBUG    
-//        pc_print('E',data,id);
-//      }
+      if (id==0) id=emem_find_data(data);
+      if (emem_del_record(id)){
+#ifdef DEBUG    
+        Serial.println("REVOKE DONE");  
+#endif //DEBUG    
+        pc_print('K',id,data);
+      } else {
+#ifdef DEBUG    
+        Serial.println("REVOKE FAILED");
+#endif //DEBUG    
+        pc_print('E',id,data);
+      }
     } else if (pc_bytes[1]=='Z' || pc_bytes[1]=='z'){
       //Zero eeprom 
       Serial.println("ZERO");
@@ -431,12 +474,13 @@ boolean pc_parse(){
 
 /**
  * Handles communication with rfid reader.
- * @return Returns true when authorized user rfid was red, false otherwise.
+ * @param p_rfid Pointer to space where mifare id will be written.
+ * @return Returns true when authorized user rfid was rd.
  */
-boolean rf_comm(unsigned long * p_rfid,unsigned int * p_id) {
+boolean rf_comm(unsigned long * p_rfid) {
   static unsigned long last_millis = 0;
   static unsigned long new_millis = 0;
-  (*p_id) = EMEM_INV_ADR;
+//  (*p_id) = EMEM_INV_ADR;
   (*p_rfid) = 0;
   new_millis = millis();
   if (new_millis<last_millis){
@@ -457,11 +501,11 @@ boolean rf_comm(unsigned long * p_rfid,unsigned int * p_id) {
 //        
 //      }
 //      if (id!=EMEM_INV_ADR){
-//        //User is authorized
+        //User is authorized
 //        (*p_id) = id;
-//        (*p_rfid) = data;
-//        return true;
-//      }
+        (*p_rfid) = data;
+        return true;
+//     }
     }
   } 
   return false;
@@ -491,6 +535,12 @@ void rf_seek(){
   rfid.print(131, BYTE); 
 }
 
-
-
-
+/**
+ * Tries to read pin code from keyboard.
+ * @param p_pin Pointer to space for pin.
+ * @return True if code was red.
+ */
+boolean pin_comm(unsigned long  * p_pin){
+  (*p_pin)=1234;
+  return false;
+}
