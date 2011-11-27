@@ -48,6 +48,25 @@ unsigned long pc_token = 0x386855c3;
 /** Flag set when next scan should send mid. */
 boolean pc_send_flag = false;
 
+/** keypad state - request pin */
+#define SEND 0
+/** keypad state - wait for response */
+#define WAIT_RESP 1
+/** Max length of message from keypad. */
+#define KEYPAD_MAX_BYTES (5)
+/** Max length of message from keypad. */
+#define KEYPAD_RESP_SIZE (5)
+/** Software serial port for communication with keypad. */
+NewSoftSerial keypad(2, 3);
+/** Global variable that holds last message from keypad. */
+char keypad_bytes[KEYPAD_MAX_BYTES];
+/** keypad state variable */
+static byte keypad_state=SEND;
+/** Pin correct */ 
+#define keypad_pin_ok() keypad.print("#R")
+/** Pin wrong  */ 
+#define keypad_pin_wrong() keypad.print("#W")
+
 //Old protocol
 //$g,00000000,0000,0000,386855c3
 //$p,00000000,0000,0000,386855c3
@@ -61,6 +80,7 @@ boolean pc_send_flag = false;
 void setup()  {
   Serial.begin(19200);
   rfid.begin(19200);
+  keypad.begin(19200);
   delay(10);
   rf_halt();
 #ifdef DEBUG  
@@ -75,8 +95,8 @@ void setup()  {
 #define STATE_MIFARE 2
 /** State variable. */
 int state=STATE_IDLE;
-int state_time=0;
-#define STATE_TIMEOUT 1000
+unsigned long state_time=0;
+#define STATE_TIMEOUT 20000
 /** Main loop. */
 void loop(){     
   unsigned long pin=0;
@@ -85,23 +105,41 @@ void loop(){
   while (1) {
     switch (state){
       case STATE_PIN:
-        if (pin_comm(&pin)){
+        if (keypad_pin_get(&pin)){
           Serial.print("Got pin.");
           Serial.println(pin);        
           //Pin code was read 
-          //Check if authorised
+          //Check if authorised      
+          
+          //react
+          if(0)
+          {
+            //"success" beep
+            keypad_pin_ok();
+            //open door
+            
+          }
+          else
+          {
+            //"error" beep
+            keypad_pin_wrong();
+          }
           state=STATE_IDLE;
           continue;
         }
         current_time=millis();
         if (state_time<current_time){
            if (current_time-state_time>STATE_TIMEOUT){
+             //turn keypad off
+             keypad_off();
              Serial.println("Timeout");             
              state=STATE_IDLE;
              continue;
            }
         } else {
            if (state_time-current_time>STATE_TIMEOUT){
+             //turn keypad off
+             keypad_off();
              Serial.println("Timeout");
              state=STATE_IDLE;
              continue;
@@ -540,7 +578,49 @@ void rf_seek(){
  * @param p_pin Pointer to space for pin.
  * @return True if code was red.
  */
-boolean pin_comm(unsigned long  * p_pin){
-  (*p_pin)=1234;
+boolean keypad_pin_get(unsigned long  * p_pin){
+  
+  static byte byte_cntr=0;
+  byte k;
+  switch (keypad_state){
+    case SEND:
+      //ask for pin
+      keypad.print("#P");
+      keypad_state=WAIT_RESP;
+      break;
+      
+    case WAIT_RESP:
+      //wait for response
+      if( keypad.available() ){
+        //store byte
+        keypad_bytes[byte_cntr]=keypad.read();
+        byte_cntr++;  
+        
+        if(byte_cntr==KEYPAD_RESP_SIZE){
+          //resp. received - store pin and clear input buffer
+          k=sscanf(keypad_bytes,"#%d",p_pin);
+          byte_cntr=0;
+          keypad_state=SEND;
+          if(k==1)
+            //scanf successful - pin read
+            return true;
+        }
+      }
+      break;
+     default:
+       keypad_state=SEND;
+       byte_cntr=0;
+       break;
+  } 
   return false;
+}
+
+
+/**
+ * Turnd off keyboard.
+ */
+void keypad_off(void)
+{
+  keypad.print("XX");
+  keypad_state=SEND;
 }
