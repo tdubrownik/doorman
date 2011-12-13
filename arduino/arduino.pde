@@ -8,6 +8,7 @@
  * @note Works with 13.56MHz MiFare 1k tags.
  * @note RFID Reset attached to D13 (aka status LED)  
  * @note Be sure include the NewSoftSerial lib, http://arduiniana.org/libraries/newsoftserial/  
+ * @note Sha256 library is required, http://code.google.com/p/cryptosuite/
  */
 
 #include <NewSoftSerial.h>
@@ -27,13 +28,18 @@
 /** Invalid record ID. */
 #define EMEM_INV_ADR (0)
 /** Size of stored hash. */
-#define EMEM_HASH_SIZE (8)
+#define EMEM_HASH_SIZE (32)
 /** Flag that indicates (if defined) verbose mode (for diagnostic) */
-#define DEBUG 1
+//#define DEBUG 1
+/**
+ * Flag that indicates (if defined) keyboard simulation mode (for diagnostic).
+ * In this mode keyboard always return pin.
+ */
+//#define DEBUG_KEYPAD_SIM 1
 /** Max length of message from rfid reader. */
-#define RF_MAX_BYTES (32)
+#define RF_MAX_BYTES (16)
 /** Max length of message from or to PC. */
-#define PC_MAX_BYTES (2+1+4+1+16+1+8+1)
+#define PC_MAX_BYTES (2+1+4+1+EMEM_HASH_SIZE*2+1+8+1)
 /** Period for quering rfid reader. */
 #define RF_PERIOD_MS (500)
 //Global var
@@ -47,7 +53,7 @@ char pc_bytes[PC_MAX_BYTES+1];
 unsigned long pc_token = 0x386855c3;
 /** Flag set when next scan should send mid. */
 boolean pc_send_flag = false;
-
+unsigned char global_hash[EMEM_HASH_SIZE];
 /** keypad state - request pin */
 #define SEND 0
 /** keypad state - wait for response */
@@ -62,19 +68,26 @@ NewSoftSerial keypad(2, 3);
 char keypad_bytes[KEYPAD_MAX_BYTES];
 /** keypad state variable */
 static byte keypad_state=SEND;
-/** Pin correct */ 
+/** Pin correct command. */ 
 #define keypad_pin_ok() keypad.print("#R")
-/** Pin wrong  */ 
+/** Pin wrong  command. */ 
 #define keypad_pin_wrong() keypad.print("#W")
+/** Door control pin. */
+#define DOOR_CTRN (4)
 
 //Old protocol
 //$g,00000000,0000,0000,386855c3
 //$p,00000000,0000,0000,386855c3
 //$a,00000000,0000,0000,386855c3
 //Protocol with hashes
-//$g,0000,0000000000000000,386855c3
-//$p,0000,0000000000000000,386855c3
-//$a,0000,0000000000000000,386855c3
+//Read next scan
+//$g,0000,dfdd69691a7af8c141cef1ce69b5196b327f71f40b54da3c4e673283dcebd9b7,386855c3
+//Print eeprom
+//$p,0000,dfdd69691a7af8c141cef1ce69b5196b327f71f40b54da3c4e673283dcebd9b7,386855c3
+//Add user
+//$a,0000,dfdd69691a7af8c141cef1ce69b5196b327f71f40b54da3c4e673283dcebd9b7,386855c3
+//Revoke user
+//$r,0000,dfdd69691a7af8c141cef1ce69b5196b327f71f40b54da3c4e673283dcebd9b7,386855c3
 
 /** Setup function. */
 void setup()  {
@@ -83,6 +96,7 @@ void setup()  {
   keypad.begin(19200);
   delay(10);
   rf_halt();
+  pinMode(DOOR_CTRN, OUTPUT);
 #ifdef DEBUG  
   Serial.println("Ready");
 #endif //DEBUG  
@@ -95,35 +109,70 @@ void setup()  {
 #define STATE_MIFARE 2
 /** State variable. */
 int state=STATE_IDLE;
+/** Start time for timeout calculation. */
 unsigned long state_time=0;
+/** Timeout value. */
 #define STATE_TIMEOUT 20000
+/** Defines how long door should be open in ms. */
+#define STATE_DOORTIME 4000
+
 /** Main loop. */
 void loop(){     
   unsigned long pin=0;
-  unsigned long rfid=0;
+  unsigned long rfid=0;  
   unsigned long current_time;
   while (1) {
     switch (state){
       case STATE_PIN:
         if (keypad_pin_get(&pin)){
-          Serial.print("Got pin.");
-          Serial.println(pin);        
           //Pin code was read 
           //Check if authorised      
-          
+          char str[8+1+8+1];             
+          for(int ii=0;ii<8+1+8+1;ii++) str[ii]=0;       
+          snprintf(str,8+1+8+1,"%08lx:%08lx",pin,rfid);
+#ifdef DEBUG          
+          Serial.print("Got pin: ");
+          Serial.print(pin);        
+          Serial.print(" and rfid: ");
+          Serial.println(rfid);
+          Serial.print("Rfid and pin: ");
+          Serial.println(str);
+#endif //DEBUG         
+          Sha256.init();         
+          Sha256.print(str);          
+          uint8_t * hash=Sha256.result();
+#ifdef DEBUG          
+          pc_print_hash(hash);
+          Serial.println();          
+#endif //DEBUG
           //react
-          if(0)
-          {
+          unsigned int fid = emem_find_data(hash);
+          if(fid!=EMEM_INV_ADR) {
             //"success" beep
             keypad_pin_ok();
             //open door
-            
-          }
-          else
-          {
+#ifdef DEBUG            
+            Serial.println("Door opened");           
+#endif //DEBUG
+            digitalWrite(DOOR_CTRN, HIGH);  
+            delay(STATE_DOORTIME);                  
+            digitalWrite(DOOR_CTRN, LOW); 
+#ifdef DEBUG
+            Serial.println("Door closed");           
+#endif //DEBUG            
+          } else {
             //"error" beep
             keypad_pin_wrong();
+#ifdef DEBUG
+            Serial.println("Wrong rfid or pin");            
+#endif //DEBUG
           }
+          if (pc_send_flag){
+            pc_send_flag=false;
+            pc_print('a',fid,hash);
+          }
+          pin=0;
+          rfid=0;
           state=STATE_IDLE;
           continue;
         }
@@ -132,7 +181,11 @@ void loop(){
            if (current_time-state_time>STATE_TIMEOUT){
              //turn keypad off
              keypad_off();
-             Serial.println("Timeout");             
+#ifdef DEBUG             
+             Serial.println("Keyboard timeout");             
+#endif //DEBUG             
+             pin=0;
+             rfid=0;
              state=STATE_IDLE;
              continue;
            }
@@ -140,7 +193,11 @@ void loop(){
            if (state_time-current_time>STATE_TIMEOUT){
              //turn keypad off
              keypad_off();
-             Serial.println("Timeout");
+#ifdef DEBUG             
+             Serial.println("Keyboard timeout");             
+#endif //DEBUG            
+             pin=0;
+             rfid=0;
              state=STATE_IDLE;
              continue;
            }        
@@ -148,29 +205,31 @@ void loop(){
         break;
       case STATE_MIFARE:
         if (rf_comm(&rfid)){
-          Serial.println("Got rfid.");
-          Serial.println(rfid);
+#ifdef DEBUG             
+          Serial.println("Got rfid: ");
+          Serial.println(rfid,HEX);
+#endif //DEBUG                      
           //Rfid was read
-          state=STATE_PIN; 
+          state=STATE_PIN;           
           state_time=millis();
         }
         break; 
       case STATE_IDLE:    
-      default:
+      default:      
         pin=0;
         rfid=0;
         state=STATE_MIFARE;
         break; 
     }  
-  //Communication with PC (optional).
-  pc_comm();
+    //Communication with PC (optional).
+    pc_comm();    
   }
 }
 
 /**
- * Function reads record with given id from EEPROM. 
+ * Function reads record with given address from EEPROM. 
  * @param adr Address of record to read, or NULL.
- * @param id Red id from memory.
+ * @param id Pointer to space reserved for id.
  * @param data Pointer to space reserved for hash.
  * @return Function returns true when data was red, false otherwise.
  */
@@ -181,15 +240,18 @@ boolean emem_get_record(unsigned int adr,unsigned int * id,unsigned char * data)
   }
   (*id)=EEPROM.read(adr*EMEM_RECORD_SIZE);
   for (int ii=1;ii<EMEM_RECORD_SIZE;ii++){
-    *(data+ii-1) = EEPROM.read(adr*EMEM_RECORD_SIZE+ii);
+    *(data+ii-1) = EEPROM.read(adr*EMEM_RECORD_SIZE+ii);    
   }
+  for (int ii=EMEM_RECORD_SIZE-1;ii<EMEM_HASH_SIZE;ii++){
+    *(data+ii) = 0;
+  }  
   return true;  
 }
 
 /** 
  * Function deletes record with given address.
  * @param adr Record address.
- * @return True if record was deleted.
+ * @return True if record was deleted, false otherwise.
  */
 boolean emem_del_record(unsigned int adr){
   if (adr>EMEM_MAX_ADR || adr<ENEM_MIN_ADR) {
@@ -217,17 +279,20 @@ unsigned int emem_find_id(unsigned int id){
 }
 
 /**
- * Finds record containing given data.
+ * Finds record containing given data (hash).
  * @param data Data to be found.
  * @return Address of found record or EMEM_INV_ADR.
  */
 unsigned int emem_find_data(unsigned char * data) {  
   for (int adr=ENEM_MIN_ADR;adr<=EMEM_MAX_ADR;adr++){    
     for (int ii=1;ii<EMEM_RECORD_SIZE;ii++){
-      if (EEPROM.read(adr*EMEM_RECORD_SIZE+ii)==*(data+ii)){
-        return adr;
-      } else {
+      unsigned char edata=EEPROM.read(adr*EMEM_RECORD_SIZE+ii);
+      if (edata!=*(data+ii-1)){        
         break;
+      } else {
+        if (ii==EMEM_RECORD_SIZE-1) {
+          return adr;
+        }
       }
     }    
   } 
@@ -250,18 +315,18 @@ unsigned int emem_find_free(){
 /**
  * Function sets data into EEPROM record.
  * @param data Data to be set.
- * @param id Record id.
- * @return True if data was written, false otherwise.
+ * @param adr Record address.
+ * @return True if data was written, false otherwise (adress out of range or failed write).
  */
-boolean emem_set_record(unsigned int id,unsigned char * data){
-  if (id>EMEM_MAX_ADR || id<ENEM_MIN_ADR) return false;  
-  EEPROM.write(id*EMEM_RECORD_SIZE,(unsigned char)(id&0x0ff));
+boolean emem_set_record(unsigned int adr,unsigned char * data){
+  if (adr>EMEM_MAX_ADR || adr<ENEM_MIN_ADR) return false;  
+  EEPROM.write(adr*EMEM_RECORD_SIZE,(unsigned char)(adr&0x0ff));
   for (int ii=1;ii<EMEM_RECORD_SIZE;ii++) {
-    EEPROM.write(id*EMEM_RECORD_SIZE+ii,*(data+ii));  
+    EEPROM.write(adr*EMEM_RECORD_SIZE+ii,*(data+ii-1));  
   }
   //Ok, now try to read and compare.
   for (int ii=1;ii<EMEM_RECORD_SIZE;ii++) {
-    if (EEPROM.read(id*EMEM_RECORD_SIZE+ii) != *(data+ii)){
+    if (EEPROM.read(adr*EMEM_RECORD_SIZE+ii) != *(data+ii-1)){
       return false;
     }
   }  
@@ -274,19 +339,18 @@ boolean emem_set_record(unsigned int id,unsigned char * data){
  */
 void emem_print(){  
   unsigned int id;  
-  unsigned char data[EMEM_HASH_SIZE];
   for (int ii=0;ii<EMEM_HASH_SIZE;ii++){
-    data[ii]=0;
+    global_hash[ii]=0;
   }
   for (int ii=ENEM_MIN_ADR;ii<=EMEM_MAX_ADR;ii++){
-    if (emem_get_record(ii,&id,data)){
+    if (emem_get_record(ii,&id,global_hash)){
       Serial.print("REC,");
       Serial.print(ii,HEX);
       Serial.print(',');
       Serial.print(id,HEX);
       for (int jj=0;jj<EMEM_HASH_SIZE;jj++){
         Serial.print(',');
-        Serial.print(*(data+jj),HEX);   
+        Serial.print(*(global_hash+jj),HEX);   
       }
       Serial.println();
     } else {
@@ -359,13 +423,27 @@ boolean rf_parse() {
  * @param id Message id.
  */
 void pc_print(char code,unsigned int id,unsigned char * data) {
-  char buf[PC_MAX_BYTES+1+1];
   unsigned long token = 0;
   unsigned int pin = 0;
-  snprintf(buf,PC_MAX_BYTES+1,"$%c,%04x,%02x%02x%02x%02x%02x%02x%02x%02x,%08lx\n",code,id,*(data),*(data+1),\
-  *(data+2),*(data+3),*(data+4),*(data+5),*(data+6),*(data+7),token);  
+  char buf[12];
+  snprintf(buf,12,"$%c,%04x,",code,id);
+  Serial.print(buf);
+  pc_print_hash(data);
+  snprintf(buf,12,",%08lx\n",token);
   Serial.print(buf);
   Serial.println("Printing done");
+}
+
+/**
+ * Prints hash given as blob of data.
+ * Hash lenght is defined as EMEM_HASH_SIZE.
+ * @param hash Given hash.
+ */
+void pc_print_hash(uint8_t* hash) {
+  for (int ii=0; ii<EMEM_HASH_SIZE; ii++) {
+    Serial.print("0123456789abcdef"[hash[ii]>>4]);
+    Serial.print("0123456789abcdef"[hash[ii]&0xf]);
+  }
 }
 
 /**
@@ -382,22 +460,33 @@ void pc_comm(){
     pc_bytes[PC_MAX_BYTES]=0;
     char code = 0;
     unsigned int id = 0;
-    unsigned char data[EMEM_HASH_SIZE];
+
     for (int ii=0;ii<EMEM_HASH_SIZE;ii++){
-      data[ii]=0;
+      global_hash[ii]=0;
     }
     unsigned long token = 0;
-    int sres = sscanf(pc_bytes,"$%c,%4x,%02x%02x%02x%02x%02x%02x%02x%02x,%8lx\n",&code,&id,data+0,data+1,data+2,data+3,data+4,data+5,data+6,data+7,&token);    
+ 
+    //$a,0000,dfdd69691a7af8c141cef1ce69b5196b327f71f40b54da3c4e673283dcebd9b7,386855c3
+    code=pc_bytes[1];
+    id=pc_bytes[3]<<24+pc_bytes[4]<<16+pc_bytes[5]<<8+pc_bytes[6];
+    for (int ii=0;ii<32;ii++){
+      char hex[3];
+      hex[0]= pc_bytes[ii*2+8];
+      hex[1]= pc_bytes[ii*2+8+1];
+      hex[2]= 0;
+      sscanf(hex,"%02x",global_hash+ii);
+    }
+    sscanf(pc_bytes+32*2+8+1,"%8lx",&token);
+
+      
 #ifdef DEBUG    
-    Serial.print("SCANNED: ");
-    Serial.print(sres);
-    Serial.print(", CODE: ");
+    Serial.print("CODE: ");
     Serial.print(code,BYTE);
     Serial.print(", ID: ");
     Serial.print(id,HEX);
     Serial.print(", HASH: ");
     for (int ii=0;ii<EMEM_HASH_SIZE;ii++){
-      Serial.print(data[ii],HEX);
+      Serial.print(global_hash[ii],HEX);
       Serial.print(',');
     }  
     Serial.print(" TOKEN: ");    
@@ -409,49 +498,53 @@ void pc_comm(){
     Serial.print(',');
     Serial.print(token & 0x0ff,HEX);
     Serial.println();    
+    
+          
 #endif //DEBUG
     if (token!=pc_token){
 #ifdef DEBUG    
-        Serial.println("WRONG TOKEN");
+      Serial.println("WRONG TOKEN");
 #endif //DEBUG
-      pc_print('E',id,data);  
+      pc_print('E',id,global_hash);  
     } else if (pc_bytes[1]=='A' || pc_bytes[1]=='a'){
       //Add
       if (id==0) id=emem_find_free();
-      if (emem_find_data(data)!=EMEM_INV_ADR){
+      if (emem_find_data(global_hash)!=EMEM_INV_ADR){
         //Already have this data
-        pc_print('E',id,data);
-      } else if (emem_set_record(id,data)){
+#ifdef DEBUG
+        Serial.println("ADD FAILED, USER EXISTS");
+#endif 
+        pc_print('E',id,global_hash);
+      } else if (emem_set_record(id,global_hash)){
 #ifdef DEBUG    
         Serial.println("ADD DONE");
 #endif //DEBUG
-        pc_print('C',id,data);  
+        pc_print('C',id,global_hash);  
       } else {
 #ifdef DEBUG    
         Serial.println("ADD FAILED");
 #endif //DEBUG
-        pc_print('E',id,data);  
+        pc_print('E',id,global_hash);  
       }
     } else if (pc_bytes[1]=='R' || pc_bytes[1]=='r'){
 //        //Revoke
-      if (id==0) id=emem_find_data(data);
+      if (id==0) id=emem_find_data(global_hash);
       if (emem_del_record(id)){
 #ifdef DEBUG    
         Serial.println("REVOKE DONE");  
 #endif //DEBUG    
-        pc_print('K',id,data);
+        pc_print('K',id,global_hash);
       } else {
 #ifdef DEBUG    
         Serial.println("REVOKE FAILED");
 #endif //DEBUG    
-        pc_print('E',id,data);
+        pc_print('E',id,global_hash);
       }
     } else if (pc_bytes[1]=='Z' || pc_bytes[1]=='z'){
-      //Zero eeprom 
+      //Zero eeprom       
       Serial.println("ZERO");
       for (int ii=0;ii<1024;ii++){
         EEPROM.write(ii,0);
-
         if (ii%10==0) {
           Serial.print(".");
         }
@@ -463,6 +556,10 @@ void pc_comm(){
       emem_print(); 
     } else if (pc_bytes[1]=='G' || pc_bytes[1]=='g'){
        pc_send_flag=true; 
+    } else {
+#ifdef DEBUG      
+      Serial.println("Unknown command");
+#endif //DEBUG      
     }
   }
 }
@@ -483,15 +580,15 @@ boolean pc_parse(){
       pc_idx=0;
       pc_bytes[pc_idx]=in; 
       continue;
-    }
+    } 
     if (in=='\n'){
 #ifdef DEBUG      
       Serial.print("Got newline ");
       Serial.println(pc_idx);
 #endif //DEBUG      
-      if (pc_idx==PC_MAX_BYTES-2) {
-        pc_idx+=1;
-        pc_bytes[pc_idx]=in;
+      if (pc_idx==PC_MAX_BYTES-2) {;
+        pc_bytes[pc_idx+1]=in;
+        pc_idx=0;
         return true;
       } else {
         pc_idx=0;
@@ -518,7 +615,6 @@ boolean pc_parse(){
 boolean rf_comm(unsigned long * p_rfid) {
   static unsigned long last_millis = 0;
   static unsigned long new_millis = 0;
-//  (*p_id) = EMEM_INV_ADR;
   (*p_rfid) = 0;
   new_millis = millis();
   if (new_millis<last_millis){
@@ -532,18 +628,8 @@ boolean rf_comm(unsigned long * p_rfid) {
     if(rf_bytes[2] > 2 && rf_bytes[3]==0x82){
       //Message has id
       unsigned long data=(long(rf_bytes[8])<<24)|(long(rf_bytes[7])<<16)|(long(rf_bytes[6])<<8)|(long(rf_bytes[5]));
-//      unsigned int id = emem_find_data(data);            
-//      if (pc_send_flag){
-//        pc_send_flag=false;
-//        pc_print('S',data,id);  
-//        
-//      }
-//      if (id!=EMEM_INV_ADR){
-        //User is authorized
-//        (*p_id) = id;
-        (*p_rfid) = data;
-        return true;
-//     }
+      (*p_rfid) = data;
+      return true;
     }
   } 
   return false;
@@ -578,10 +664,13 @@ void rf_seek(){
  * @param p_pin Pointer to space for pin.
  * @return True if code was red.
  */
-boolean keypad_pin_get(unsigned long  * p_pin){
-  
+boolean keypad_pin_get(unsigned long  * p_pin){  
   static byte byte_cntr=0;
   byte k;
+#ifdef DEBUG_KEYPAD_SIM
+  (*p_pin)=1234;
+  return true;
+#endif 
   switch (keypad_state){
     case SEND:
       //ask for pin
@@ -615,12 +704,10 @@ boolean keypad_pin_get(unsigned long  * p_pin){
   return false;
 }
 
-
 /**
  * Turnd off keyboard.
  */
-void keypad_off(void)
-{
+void keypad_off(void) {
   keypad.print("XX");
   keypad_state=SEND;
 }
