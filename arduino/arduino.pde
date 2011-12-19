@@ -674,7 +674,8 @@ boolean keypad_pin_get(unsigned long  * p_pin){
   switch (keypad_state){
     case SEND:
       //ask for pin
-      keypad.print("#P");
+      keypad.print("#P");      
+      byte_cntr=0;//clear input buffer
       keypad_state=WAIT_RESP;
       break;
       
@@ -686,9 +687,8 @@ boolean keypad_pin_get(unsigned long  * p_pin){
         byte_cntr++;  
         
         if(byte_cntr==KEYPAD_RESP_SIZE){
-          //resp. received - store pin and clear input buffer
+          //resp. received - store pin
           k=sscanf(keypad_bytes,"#%d",p_pin);
-          byte_cntr=0;
           keypad_state=SEND;
           if(k==1)
             //scanf successful - pin read
