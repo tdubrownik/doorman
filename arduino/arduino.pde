@@ -169,7 +169,7 @@ void loop(){
           }
           if (pc_send_flag){
             pc_send_flag=false;
-            pc_print('a',fid,hash);
+            pc_print('s',fid,hash);
           }
           pin=0;
           rfid=0;
@@ -430,8 +430,7 @@ void pc_print(char code,unsigned int id,unsigned char * data) {
   Serial.print(buf);
   pc_print_hash(data);
   snprintf(buf,12,",%08lx\n",token);
-  Serial.print(buf);
-  Serial.println("Printing done");
+  Serial.print(buf); 
 }
 
 /**
