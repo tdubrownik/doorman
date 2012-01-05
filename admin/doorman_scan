@@ -13,6 +13,6 @@ if __name__ == '__main__':
     proto = Proto(url)
     print 'Please swipe token'
     c = scan(token, proto=proto)
-    assert(c.command == 'S')
-    print 'CardID: %x, UID: %x, Username: %s' % \
-        (c.mid, c.uid, get_card(c.mid)[1])
+    assert(c.command.upper() == 'S')
+    print 'Hash: %s, UID: %x, Username: %s' % \
+        (c.hash, c.uid, get_card(c.hash)[1])

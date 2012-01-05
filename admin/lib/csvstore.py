@@ -1,3 +1,4 @@
+from sys import stderr
 from UserDict import IterableUserDict
 from StringIO import StringIO
 
@@ -10,7 +11,8 @@ class Storage(IterableUserDict):
         try:
             stored = {x[0]: [x[1], x[2]] 
                 for x in csv.reader(StringIO(self.encapsulation.data))}
-        except IOError:
+        except IOError as e:
+            print >>stderr, e
             stored = {}
         IterableUserDict.__init__(self, stored)
     def sync(self):

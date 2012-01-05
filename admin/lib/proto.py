@@ -26,5 +26,5 @@ class Proto(object):
         line = self.fd.readline()
         cmd = Command.from_str(line)
         if cmd.command == 'E':
-            raise RemoteException(cmd.mid, cmd.uid)
+            raise RemoteException(cmd.hash, cmd.uid)
         return cmd

@@ -3,21 +3,20 @@ from command import Command
 
 def scan(token, url=None, proto=None):
     proto = proto or Proto(url)
-    proto.send(Command(command='G', mid=0, uid=0, token=token))
+    proto.send(Command(command='G', uid=0, hash=0, token=token))
     return proto.recv()
 
-def add(token, mid, pin, uid=0, url=None, proto=None):
+def add(token, hash, uid=0, url=None, proto=None):
     proto = proto or Proto(url)
-    proto.send(Command(command='A', mid=mid, uid=uid, 
-        pin=''.join(chr(i + ord('0')) for i in pin), token=token))
+    proto.send(Command(command='A', hash=hash, uid=uid, token=token))
     return proto.recv()
 
 def revoke_uid(token, uid, url=None, proto=None):
     proto = proto or Proto(url)
-    proto.send(Command(command='R', mid=0, uid=uid, token=token))
+    proto.send(Command(command='R', hash=0, uid=uid, token=token))
     return proto.recv()
 
-def revoke_mid(token, mid, url=None, proto=None):
+def revoke_hash(token, hash, url=None, proto=None):
     proto = proto or Proto(url)
-    proto.send(Command(command='R', mid=mid, uid=0, token=token))
+    proto.send(Command(command='R', hash=hash, uid=0, token=token))
     return proto.recv()
