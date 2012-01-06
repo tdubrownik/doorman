@@ -147,6 +147,10 @@ void loop(){
 #endif //DEBUG
           //react
           unsigned int fid = emem_find_data(hash);
+          if (pc_send_flag){
+            pc_send_flag=false
+            pc_print('s',fid,hash);
+          }
           if(fid!=EMEM_INV_ADR) {
             //"success" beep
             keypad_pin_ok();
@@ -167,10 +171,7 @@ void loop(){
             Serial.println("Wrong rfid or pin");            
 #endif //DEBUG
           }
-          if (pc_send_flag){
-            pc_send_flag=false;
-            pc_print('s',fid,hash);
-          }
+          
           pin=0;
           rfid=0;
           state=STATE_IDLE;
@@ -467,7 +468,12 @@ void pc_comm(){
  
     //$a,0000,dfdd69691a7af8c141cef1ce69b5196b327f71f40b54da3c4e673283dcebd9b7,386855c3
     code=pc_bytes[1];
-    id=pc_bytes[3]<<24+pc_bytes[4]<<16+pc_bytes[5]<<8+pc_bytes[6];
+    char ids[5];
+    for (int ii=0;ii<4;ii++){
+      ids[ii]=pc_bytes[ii+3];
+    }
+    ids[4]='\0';
+    sscanf(ids,"%d",&id);
     for (int ii=0;ii<32;ii++){
       char hex[3];
       hex[0]= pc_bytes[ii*2+8];
