@@ -14,12 +14,12 @@ if __name__ == '__main__':
     proto = Proto(url)
     user = argv[1]
     cards = cards_for_user(user)
-    for mid in cards:
-        print 'Revoking card %x' % mid
-        status = revoke_mid(token, mid, proto=proto)
+    for h in cards:
+        print 'Revoking card %s' % h
+        status = revoke_hash(token, h, proto=proto)
         if status.command == 'K':
-            del_card(mid)
-            print 'Card %x revoked' % mid
+            del_card(h)
+            print 'Card %s revoked' % h
         else:
             print >> stderr, 'Unknown error:', status
             exit(1)
