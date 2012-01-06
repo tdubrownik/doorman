@@ -8,21 +8,42 @@ from lib.actions import *
 from lib.storage import add_user
 from lib.password import get_token, get_pin
 
+import options
 if __name__ == '__main__':
-  url = argv[2] if len(argv) > 2 else None
-  uname = argv[1]
-  token = get_token()
-  proto = Proto(url)
-  print 'Please swipe token'
-  frame = scan(token=token, proto=proto)
-  assert(frame.command.upper() == 'S')
-  if frame.uid:
-    print >> stderr, 'E: Token already in use (user %d)' % frame.uid
-    exit(1)
-  status = add(token, frame.hash, proto=proto)
-  if status.command.upper() == 'C':
-      add_user(uname, frame.hash, status.uid)
-      print 'User %s added successfully (uid=%d)' % (uname, status.uid)
-  else:
-      print >> stderr, 'Unknown error:', str(status)
-      exit(1)
+    parser = argparse.ArgumentParser(
+        description='Add a card')
+    parser.add_argument('name',
+        help='Card owner\'s username')
+    parser.add_argument('url', 
+        help='Serial connection to use', 
+        default=options.url,
+        nargs='?')
+    parser.add_argument('-l', '--local', action='store_true',
+        help='If specified, only update local base',)
+    parser.add_argument('-c', '--card', help='Card+PIN hash (will not scan)')
+    parser.add_argument('-u', '--uid', help='Short unique ID of the card', type=int)
+    args = parser.parse_args()
+    uid = args.uid
+    card = args.card
+    uname = args.name
+    if args.local and not (args.card and args.uid):
+        print 'Local update requires a card and uid to be specified!'
+        exit(2)
+    if not args.local:
+        token = get_token()
+        proto = Proto(args.url)
+        if not args.card:
+            print 'Please swipe token'
+            frame = scan(token=token, proto=proto)
+            assert(frame.command.upper() == 'S')
+            card = frame.hash
+            uid = frame.uid
+            if frame.uid:
+                print >> stderr, 'E: Token already in use (user %d)' % frame.uid
+                exit(1)
+        status = add(token, frame.hash, proto=proto)
+        if status.command.upper() != 'C':
+            print >> stderr, 'Unknown error:', str(status)
+            exit(1)
+    add_user(uname, card, uid)
+    print 'User %s added successfully (uid=%d)' % (uname, uid)

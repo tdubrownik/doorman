@@ -7,7 +7,7 @@ import hashlib
 import os
 import tempfile
 
-import lib.password
+import lib.password as password
 
 class RawFileEncapsulation(object):
     """
@@ -53,9 +53,9 @@ class RawFileEncapsulation(object):
         Verifies everything went well and commits changes to the file.
         """
         
-        original = open(self.original_filename, "rb")
-        verification_data = self._decode_data(original.read())
-        verification_checksum = hashlib.sha1(verification_data).hexdigest()
+        with open(self.original_filename, "rb") as original:
+            verification_data = self._decode_data(original.read())
+            verification_checksum = hashlib.sha1(verification_data).hexdigest()
         
         if verification_checksum != self.original_checksum:
             #TODO: Implement separate exception
@@ -72,8 +72,8 @@ class RawFileEncapsulation(object):
         # opened by another program here and it can be modified!
         # Oh well.
         
-        original = open(self.original_filename, "wb")
-        original.write(self._encode_data(self.data))
+        with open(self.original_filename, "wb") as original:
+            original.write(self._encode_data(self.data))
         
         # Remove the backup.
         os.remove(backup_filename)
