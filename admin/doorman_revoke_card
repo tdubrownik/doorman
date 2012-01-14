@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python2
 
 import argparse
 import options
@@ -32,7 +32,7 @@ if __name__ == '__main__':
             frame = scan(token, proto=proto)
             assert(frame.command == 'S')
             card = frame.hash
-        status = revoke_mid(token, card, proto=proto)
+        status = revoke_hash(token, card, proto=proto)
         if status.command != 'K':
             print >> stderr, 'Unknown error:', str(status)
             exit(1)
