@@ -63,11 +63,9 @@ Command = frame('Command', [
     Const('$'),
     Char('command', cmd_bytes),
     Const(','),
-    Hex('mid', mid_bytes),
-    Const(','),
     Hex('uid', uid_bytes),
     Const(','),
-    Char('pin', pin_bytes),
+    Char('hash', hash_bytes),
     Const(','),
     Char('token', token_bytes),
 ])

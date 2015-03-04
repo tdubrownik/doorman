@@ -1,6 +1,7 @@
 url = '/dev/ttyACM0'
 serial = dict(
     baudrate = 19200,
+    timeout = 60,
 )
 shelf = './base'
 json = './cards.json'
@@ -10,13 +11,14 @@ storage = 'csv'
 #whether the storage method should be encrypted
 storage_encrypt = True
 
-mid_bytes = 8
 uid_bytes = 4
 cmd_bytes = 1
 empty_uid = 0
+empty_hash = '0' * 64
 empty_mid = 0
 
-pin_bytes = 4
+hash_bytes = 64
+
 token_bytes = 8
 
-init_sleep = 3
+init_sleep = 5

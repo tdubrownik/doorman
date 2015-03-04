@@ -1,6 +1,7 @@
-#!/usr/bin/env python
+#!/usr/bin/env python2
 
 import argparse
+import options
 from sys import stderr, argv
 
 from lib.actions import *
@@ -9,16 +10,31 @@ from lib.storage import del_card
 from lib.password import get_token
 
 if __name__ == '__main__':
-  url = argv[1] if len(argv) > 1 else None
-  token = get_token()
-  proto = Proto(url)
-  print 'Please swipe token'
-  card = scan(token, proto=proto)
-  assert(card.command == 'S')
-  status = revoke_mid(token, card.mid, proto=proto)
-  if status.command == 'K':
-      (uid, name) = del_card(card.mid)
-      print 'Card %x (user %s, uid %d) revoked' % (card.mid, name, card.uid)
-  else:
-      print >> stderr, 'Unknown error:', str(status)
-      exit(1)
+    parser = argparse.ArgumentParser(
+        description='Revoke a single card')
+    parser.add_argument('url', 
+        help='Serial connection to use',
+        default=options.url,
+        nargs='?')
+    parser.add_argument('-l', '--local', action='store_true',
+        help='If specified, only update local base',)
+    parser.add_argument('-c', '--card', help='Card+PIN hash (will not scan), only required with -l')
+    args = parser.parse_args()
+    if args.local and not args.card:
+        print 'Local update requires a card to be specified!'
+        exit(2)
+    card = args.card
+    if not args.local:
+        token = get_token()
+        proto = Proto(args.url)
+        if not args.card:
+            print 'Please swipe token'
+            frame = scan(token, proto=proto)
+            assert(frame.command == 'S')
+            card = frame.hash
+        status = revoke_hash(token, card, proto=proto)
+        if status.command != 'K':
+            print >> stderr, 'Unknown error:', str(status)
+            exit(1)
+    (uid, name) = del_card(card)
+    print 'Card %s (user %s, uid %d) revoked' % (card, name, uid)

@@ -21,10 +21,20 @@ class Proto(object):
         print >> stderr, 'Serial port ready'
     def send(self, command):
         cmd = str(command) + '\n'
+        print cmd
         self.fd.write(cmd)
     def recv(self):
         line = self.fd.readline()
+        print line
         cmd = Command.from_str(line)
         if cmd.command == 'E':
-            raise RemoteException(cmd.mid, cmd.uid)
+            raise RemoteException(cmd.hash, cmd.uid)
         return cmd
+
+class MockProto(object):
+    def __init__(*a, **kw):
+        pass
+    def send(self, command):
+        pass
+    def recv(self):
+        return Command()
