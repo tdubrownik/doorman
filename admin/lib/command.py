@@ -1,4 +1,6 @@
 from collections import namedtuple
+import hmac
+import hashlib
 
 from options import *
 
@@ -67,5 +69,14 @@ Command = frame('Command', [
     Const(','),
     Char('hash', hash_bytes),
     Const(','),
-    Char('token', token_bytes),
+    Char('mac', mac_bytes),
 ])
+
+def signed_command(command='P', hash='00'*32, uid=0, token=''):
+    """Returns a MACd Command instance."""
+    data = str(Command(command=command, hash=hash, uid=uid, mac="aa"*32))
+    data = ','.join(data.split(',')[:3])
+    print data
+    mac = hmac.HMAC(token, digestmod=hashlib.sha256)
+    mac.update(data)
+    return Command(command=command, hash=hash, uid=uid, mac=mac.hexdigest())

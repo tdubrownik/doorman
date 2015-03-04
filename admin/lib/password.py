@@ -9,7 +9,7 @@ def get_des_storage_key(filename):
 
 def get_token():
     password = getpass.getpass('Password:')
-    return hashlib.sha1(password).hexdigest()[:options.token_bytes]
+    return password
 
 def get_pin():
     pin = getpass.getpass('PIN:')
