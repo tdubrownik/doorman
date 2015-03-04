@@ -92,7 +92,7 @@ static byte keypad_state=SEND;
 /** Setup function. */
 void setup()  {
   Serial.begin(19200);
-  rfid.begin(19200);
+  //rfid.begin(19200);
   keypad.begin(19200);
   delay(10);
   rf_halt();
@@ -366,7 +366,7 @@ void emem_print(){
  * @return Returns true if message was received, false otherwise
  */
 boolean rf_parse() {
-  static int rf_idx = 0;
+  /*static int rf_idx = 0;
   while(rfid.available()){
     //Read the incoming byte.
     byte in = rfid.read();
@@ -413,7 +413,7 @@ boolean rf_parse() {
       rf_idx=0;
       continue;
     }     
-  }
+  }*/
   return false;
 }
 
@@ -645,11 +645,11 @@ boolean rf_comm(unsigned long * p_rfid) {
  */
 void rf_halt() {
   //Halt tag
-  rfid.print(255, BYTE);
+  /*rfid.print(255, BYTE);
   rfid.print(0, BYTE);
   rfid.print(1, BYTE);
   rfid.print(147, BYTE);
-  rfid.print(148, BYTE);
+  rfid.print(148, BYTE);*/
 }
 
 /**
@@ -657,11 +657,11 @@ void rf_halt() {
  */
 void rf_seek(){
   //search for RFID tag
-  rfid.print(255, BYTE);
+  /*rfid.print(255, BYTE);
   rfid.print(0, BYTE);
   rfid.print(1, BYTE);
   rfid.print(130, BYTE);
-  rfid.print(131, BYTE); 
+  rfid.print(131, BYTE); */
 }
 
 /**
