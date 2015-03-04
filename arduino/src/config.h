@@ -21,7 +21,12 @@
 //#define DEBUG_KEYPAD_SIM 1
 /** Max length of message from rfid reader. */
 #define RF_MAX_BYTES (16)
+/** Length of MAC **/
+#define PC_MAC_SIZE (32)
 /** Max length of message from or to PC. */
-#define PC_MAX_BYTES (2+1+4+1+EMEM_HASH_SIZE*2+1+8+1)
+#define PC_MAX_BYTES (2+1+4+1+EMEM_HASH_SIZE*2+1+PC_MAC_SIZE*2+1)
 /** Period for quering rfid reader. */
 #define RF_PERIOD_MS (500)
+
+/** PC Communications MAC secret **/
+#define PC_MAC_SECRET ("hackme")

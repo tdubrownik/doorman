@@ -21,8 +21,9 @@
 #include "rf.h"
 #include "emem.h"
 
-//Global var
-unsigned char global_hash[EMEM_HASH_SIZE];
+// Global var
+/** Used to pass current command hash **/
+unsigned char g_Hash[EMEM_HASH_SIZE];
 /** Door control pin. */
 #define DOOR_CTRN (4)
 

@@ -4,7 +4,7 @@
 #include "config.h"
 
 // from doorman.ino
-extern unsigned char global_hash[];
+extern unsigned char g_Hash[];
 
 /**
  * Function reads record with given address from EEPROM. 
@@ -120,17 +120,17 @@ boolean emem_set_record(unsigned int adr,unsigned char * data) {
 void emem_print() {  
   unsigned int id;  
   for (int ii=0;ii<EMEM_HASH_SIZE;ii++){
-    global_hash[ii] = 0;
+    g_Hash[ii] = 0;
   }
   for (int ii=ENEM_MIN_ADR;ii<=EMEM_MAX_ADR;ii++){
-    if (emem_get_record(ii,&id,global_hash)){
+    if (emem_get_record(ii,&id,g_Hash)){
       Serial.print("REC,");
       Serial.print(ii,HEX);
       Serial.print(',');
       Serial.print(id,HEX);
       for (int jj=0;jj<EMEM_HASH_SIZE;jj++){
         Serial.print(',');
-        Serial.print(*(global_hash+jj),HEX);   
+        Serial.print(*(g_Hash+jj),HEX);   
       }
       Serial.println();
     } else {
