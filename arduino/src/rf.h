@@ -1,6 +1,8 @@
 #ifndef __DOORMAN_RF_H__
 #define __DOORMAN_RF_H__
 
+void rf_reset();
+void rf_init();
 void rf_halt();
 void rf_seek();
 boolean rf_parse();

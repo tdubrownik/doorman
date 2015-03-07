@@ -167,6 +167,7 @@ void pc_comm(){
       else
         Serial.print(',');
     }  
+#endif
 
     // Check MAC
     pc_bytes[1+1+1+4+1+EMEM_HASH_SIZE*2] = '\0';
@@ -189,9 +190,8 @@ void pc_comm(){
       Serial.print(',');
     }
     Serial.println("");
-#endif
-          
 #endif //DEBUG
+          
     if (mac_result != 0){
 #ifdef DEBUG    
       Serial.println("WRONG TOKEN");

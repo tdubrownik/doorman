@@ -25,7 +25,7 @@
 /** Used to pass current command hash **/
 unsigned char g_Hash[EMEM_HASH_SIZE];
 /** Door control pin. */
-#define DOOR_CTRN (4)
+#define DOOR_CTRN (10)
 
 // From pc.cpp
 /** Flag set when next scan should send mid. */
@@ -35,8 +35,7 @@ extern boolean pc_send_flag;
 void setup()  {
   Serial.begin(19200);
   keypad_init();
-  delay(10);
-  rf_halt();
+  rf_init();
   pinMode(DOOR_CTRN, OUTPUT);
 #ifdef DEBUG  
   Serial.println("Ready");
@@ -161,6 +160,7 @@ void loop(){
         pin=0;
         rfid=0;
         state=STATE_MIFARE;
+        rf_reset();
         break; 
     }  
     //Communication with PC (optional).

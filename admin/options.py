@@ -1,4 +1,4 @@
-url = '/dev/ttyACM0'
+url = '/dev/ttyUSB6'
 serial = dict(
     baudrate = 19200,
     timeout = 60,
@@ -9,7 +9,7 @@ csv = './cards.csv'
 
 storage = 'csv'
 #whether the storage method should be encrypted
-storage_encrypt = True
+storage_encrypt = False
 
 uid_bytes = 4
 cmd_bytes = 1
@@ -19,6 +19,6 @@ empty_mid = 0
 
 hash_bytes = 64
 
-token_bytes = 8
+mac_bytes = 64
 
 init_sleep = 5

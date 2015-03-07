@@ -12,7 +12,7 @@
 /** Max length of message from keypad. */
 #define KEYPAD_RESP_SIZE (5)
 /** Software serial port for communication with keypad. */
-SoftwareSerial keypad(2, 3);
+SoftwareSerial keypad(9, 8);
 /** Global variable that holds last message from keypad. */
 char keypad_bytes[KEYPAD_MAX_BYTES];
 /** keypad state variable */

@@ -41,7 +41,9 @@ if __name__ == '__main__':
             if frame.uid:
                 print >> stderr, 'E: Token already in use (user %d)' % frame.uid
                 exit(1)
-        status = add(token, frame.hash, proto=proto)
+        else:
+            card = args.card
+        status = add(token, card, proto=proto)
         if status.command.upper() != 'C':
             print >> stderr, 'Unknown error:', str(status)
             exit(1)
