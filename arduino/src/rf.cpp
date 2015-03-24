@@ -41,20 +41,26 @@ void rf_seek() {
  * @return Returns true when authorized user rfid was rd.
  */
 boolean rf_comm(unsigned long * p_rfid) {
-  static unsigned long last_millis = 0;
-  static unsigned long new_millis = 0;
+  static unsigned long last_millis_seek = 0;
+  static unsigned long last_millis_reset = 0;
+
+  unsigned long new_millis = millis();
+
   (*p_rfid) = 0;
-  new_millis = millis();
-  if (new_millis<last_millis){
-    last_millis=new_millis; 
-  } else if ((millis()-last_millis ) > RF_PERIOD_MS ){
+  if (new_millis < last_millis_seek) {
+    last_millis_seek = new_millis; 
+  } else if ((new_millis - last_millis_seek) > RF_PERIOD_SEEK_MS) {
     rf_seek();
-    last_millis = new_millis;
+    last_millis_seek = new_millis;
   }
+  if (new_millis < last_millis_reset) {
+    last_millis_reset = new_millis;
+  } else if ((new_millis - last_millis_reset) > RF_PERIOD_RESET_MS) {
+    rf_reset();
+    last_millis_reset = new_millis;
+  }
+
   if (rfid.available()){
-    /*if(rf_bytes[2] > 2 && rf_bytes[3]==0x82){
-      //Message has id
-    }*/
     //Message received
     uint8_t *rf_bytes = rfid.getTagNumber();
 #ifdef DEBUG

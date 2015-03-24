@@ -26,7 +26,8 @@
 /** Max length of message from or to PC. */
 #define PC_MAX_BYTES (2+1+4+1+EMEM_HASH_SIZE*2+1+PC_MAC_SIZE*2+1)
 /** Period for quering rfid reader. */
-#define RF_PERIOD_MS (500)
+#define RF_PERIOD_SEEK_MS (500)
+#define RF_PERIOD_RESET_MS (30 * 60 * 1000)
 
 /** PC Communications MAC secret **/
 #define PC_MAC_SECRET ("hackme")
