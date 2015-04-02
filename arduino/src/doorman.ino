@@ -160,7 +160,6 @@ void loop(){
         pin=0;
         rfid=0;
         state=STATE_MIFARE;
-        rf_reset();
         break; 
     }  
     //Communication with PC (optional).

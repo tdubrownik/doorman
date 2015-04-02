@@ -1,77 +1,48 @@
 #include <Arduino.h>
-#include <SM130.h>
-#include <Wire.h>
+#include <Adafruit_PN532.h>
 
 #include "config.h"
 
 /** Global variable that holds RFID reader object. */
-SM130 rfid;
+Adafruit_PN532 rfid(3, 4);
 
 /**
  * Init NFC subsystem
  */
 void rf_init(void) {
-  Wire.begin();
-  rfid.address = 0x30;
-  rfid.reset();
+  rfid.begin();
 #ifdef DEBUG
-    Serial.print("SM130 firmware version: ");
-    Serial.println(rfid.getFirmwareVersion());
+    uint32_t versiondata = rfid.getFirmwareVersion();
+    Serial.print("Found chip PN5"); Serial.println((versiondata>>24) & 0xFF, HEX); 
+    Serial.print("Firmware ver. "); Serial.print((versiondata>>16) & 0xFF, DEC); 
+    Serial.print('.'); Serial.println((versiondata>>8) & 0xFF, DEC);
 #endif //DEBUG
+  rfid.setPassiveActivationRetries(0xFF);
+  rfid.SAMConfig();
 }
 
-/**
- * Resets the NFC controller
- */
-
-void rf_reset() {
-  rfid.reset();
-}
-
-/**
- * Sends seek command to rfid reader.
- */
-void rf_seek() {
-  rfid.seekTag();
-}
-
+uint8_t mifareBytes[7];
 /**
  * Handles communication with rfid reader.
  * @param p_rfid Pointer to space where mifare id will be written.
  * @return Returns true when authorized user rfid was rd.
  */
 boolean rf_comm(unsigned long * p_rfid) {
-  static unsigned long last_millis_seek = 0;
-  static unsigned long last_millis_reset = 0;
+  bool success;
+  uint8_t mifareLength;
 
-  unsigned long new_millis = millis();
-
-  (*p_rfid) = 0;
-  if (new_millis < last_millis_seek) {
-    last_millis_seek = new_millis; 
-  } else if ((new_millis - last_millis_seek) > RF_PERIOD_SEEK_MS) {
-    rf_seek();
-    last_millis_seek = new_millis;
-  }
-  if (new_millis < last_millis_reset) {
-    last_millis_reset = new_millis;
-  } else if ((new_millis - last_millis_reset) > RF_PERIOD_RESET_MS) {
-    rf_reset();
-    last_millis_reset = new_millis;
-  }
-
-  if (rfid.available()){
-    //Message received
-    uint8_t *rf_bytes = rfid.getTagNumber();
+  success = rfid.readPassiveTargetID(PN532_MIFARE_ISO14443A,
+                                    &mifareBytes[0], &mifareLength);
+  if (success){
 #ifdef DEBUG
     Serial.print("RFID Tag: ");
-    for (int i = 0; i < 8; i++) {
-      Serial.print(rf_bytes[i], HEX);
+    for (int i = 0; i < mifareLength; i++) {
+      Serial.print(mifareBytes[i], HEX);
       Serial.print(",");
     }
     Serial.println();
 #endif //DEBUG
-      unsigned long data=(long(rf_bytes[3])<<24)|(long(rf_bytes[2])<<16)|(long(rf_bytes[1])<<8)|(long(rf_bytes[0]));
+      unsigned long data=(long(mifareBytes[3])<<24)|(long(mifareBytes[2])<<16)|(long(mifareBytes[1])<<8)|(long(mifareBytes[0]));
       (*p_rfid) = data;
       return true;
   } 
