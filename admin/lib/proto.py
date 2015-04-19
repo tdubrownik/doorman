@@ -22,10 +22,14 @@ class Proto(object):
     def send(self, command):
         cmd = str(command) + '\n'
         print cmd
-        self.fd.write(cmd)
+        for i in cmd:
+            sleep(0.02)
+            self.fd.write(i)
     def recv(self):
         line = self.fd.readline()
         print line
+        if line[0] != '$':
+            return self.recv()
         cmd = Command.from_str(line)
         if cmd.command == 'E':
             raise RemoteException(cmd.hash, cmd.uid)

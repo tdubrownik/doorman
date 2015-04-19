@@ -22,12 +22,14 @@ extern unsigned char g_Hash[];
  * @return Returns true if message was received, false otherwise.
  */
 boolean pc_parse(){
+    //Serial.write('#');
   static int pc_idx=0;
   char in = 0;	// for incoming serial data
   // send data only when you receive data:
   while (Serial.available() > 0) {
     //read the incoming byte:
     in = Serial.read();
+    //Serial.write(in);
     if (in=='$') {
       //Start condition
       pc_idx=0;
@@ -258,6 +260,9 @@ void pc_comm(){
       emem_print(); 
     } else if (pc_bytes[1]=='G' || pc_bytes[1]=='g'){
        pc_send_flag=true; 
+#ifdef DEBUG
+       Serial.println("send flag true");
+#endif
     } else {
 #ifdef DEBUG      
       Serial.println("Unknown command");

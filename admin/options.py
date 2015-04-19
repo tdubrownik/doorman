@@ -1,4 +1,4 @@
-url = '/dev/ttyUSB6'
+url = '/dev/ttyACM1'
 serial = dict(
     baudrate = 19200,
     timeout = 60,
@@ -21,4 +21,4 @@ hash_bytes = 64
 
 mac_bytes = 64
 
-init_sleep = 5
+init_sleep = 3

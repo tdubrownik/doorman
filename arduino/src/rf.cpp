@@ -12,6 +12,7 @@ Adafruit_PN532 rfid(3, 4);
 void rf_init(void) {
   rfid.begin();
 #ifdef DEBUG
+  Serial.println("firm?");
     uint32_t versiondata = rfid.getFirmwareVersion();
     Serial.print("Found chip PN5"); Serial.println((versiondata>>24) & 0xFF, HEX); 
     Serial.print("Firmware ver. "); Serial.print((versiondata>>16) & 0xFF, DEC); 
@@ -32,7 +33,7 @@ boolean rf_comm(unsigned long * p_rfid) {
   uint8_t mifareLength;
 
   success = rfid.readPassiveTargetID(PN532_MIFARE_ISO14443A,
-                                    &mifareBytes[0], &mifareLength);
+                                    &mifareBytes[0], &mifareLength, 100);
   if (success){
 #ifdef DEBUG
     Serial.print("RFID Tag: ");

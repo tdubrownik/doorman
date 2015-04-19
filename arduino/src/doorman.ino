@@ -35,6 +35,9 @@ extern boolean pc_send_flag;
 void setup()  {
   Serial.begin(19200);
   keypad_init();
+  #ifdef DEBUG
+  Serial.println("Initializing NFC..");
+  #endif
   rf_init();
   pinMode(DOOR_CTRN, OUTPUT);
 #ifdef DEBUG  

@@ -13,7 +13,7 @@
 /** Size of stored hash. */
 #define EMEM_HASH_SIZE (32)
 /** Flag that indicates (if defined) verbose mode (for diagnostic) */
-//#define DEBUG 1
+#define DEBUG 1
 /**
  * Flag that indicates (if defined) keyboard simulation mode (for diagnostic).
  * In this mode keyboard always return pin.
