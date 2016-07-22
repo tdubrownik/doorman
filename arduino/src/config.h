@@ -7,13 +7,13 @@
 /** First record ID. */
 #define ENEM_MIN_ADR (1)
 /** Last record ID. */
-#define EMEM_MAX_ADR (100)
+#define EMEM_MAX_ADR (140)
 /** Invalid record ID. */
 #define EMEM_INV_ADR (0)
 /** Size of stored hash. */
 #define EMEM_HASH_SIZE (32)
 /** Flag that indicates (if defined) verbose mode (for diagnostic) */
-#define DEBUG 1
+// #define DEBUG 1
 /**
  * Flag that indicates (if defined) keyboard simulation mode (for diagnostic).
  * In this mode keyboard always return pin.

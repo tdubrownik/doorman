@@ -1,4 +1,4 @@
-url = '/dev/ttyACM1'
+url = '/dev/ttyACM0'
 serial = dict(
     baudrate = 19200,
     timeout = 60,

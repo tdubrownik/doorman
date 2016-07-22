@@ -128,8 +128,10 @@ void emem_print() {
       Serial.print(ii,HEX);
       Serial.print(',');
       Serial.print(id,HEX);
+      Serial.print(',');
       for (int jj=0;jj<EMEM_HASH_SIZE;jj++){
-        Serial.print(',');
+        if(*(g_Hash+jj) < 16)
+            Serial.print('0');
         Serial.print(*(g_Hash+jj),HEX);   
       }
       Serial.println();
