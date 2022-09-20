@@ -1,0 +1,101 @@
+#!/usr/bin/env python
+
+import ldap
+import getpass
+import pprint
+import requests
+
+from sys import argv
+
+import options
+from lib.actions import revoke_hash, add
+from lib.proto import Proto
+from lib.storage import get_card
+from lib.password import get_token
+from lib.command import signed_command
+
+MEMBER_FILTER = ('(|'
+    '(memberOf=cn=starving,ou=Group,dc=hackerspace,dc=pl)'
+    '(memberOf=cn=fatty,ou=Group,dc=hackerspace,dc=pl)'
+    '(memberOf=cn=potato,ou=Group,dc=hackerspace,dc=pl)'
+    ')')
+
+
+class shorthash(tuple):
+    """string which only compares first 12 characters"""
+
+    def __hash__(self):
+        return hash(str(self[0][:12].lower()))
+
+    def __eq__(self, other):
+        return hash(self) == hash(other)
+
+    def __repr__(self):
+        return 'shorthash(%s)' % (tuple.__repr__(self))
+
+
+def get_current_cards(token, proto):
+    cards = set()
+
+    proto.send(signed_command(command='P', hash=options.empty_hash, uid=0, token=token))
+
+    while True:
+        l = proto.fd.readline().strip()
+
+        if not l.startswith('REC,'):
+            continue
+        print(l)
+        _, i, d, card_hash = l.strip().split(',')
+
+        if i == d:
+            cards.add(shorthash((card_hash.lower(), None)))
+
+        if i == '8C':
+            return cards
+
+
+def get_target_cards(c):
+    cards = set()
+    for user, attrs in c.search_s('ou=People,dc=hackerspace,dc=pl',ldap.SCOPE_SUBTREE,'(&(mifareIDHash=*)%s)' % MEMBER_FILTER, ['mifareIDHash', 'uid']):
+        for h in attrs['mifareIDHash']:
+            cards.add(shorthash((h, user)))
+    return cards
+
+if __name__ == "__main__":
+    url = argv[1] if len(argv) > 1 else options.url
+    token = get_token()
+    proto = Proto(url)
+
+    c = ldap.initialize('ldap://ldap.hackerspace.pl')
+    c.start_tls_s()
+    c.simple_bind_s('uid=%s,ou=People,dc=hackerspace,dc=pl' % (getpass.getuser(),), getpass.getpass('LDAP password: '))
+    target = get_target_cards(c)
+    cur = get_current_cards(token, proto)
+
+    to_remove = cur - target
+    to_add = target - cur
+    print 'current:', len(cur)
+    print 'target:', len(target)
+    pprint.pprint(target)
+
+    print 'to add:', len(to_add)
+    pprint.pprint(to_add)
+    print 'to remove:', len(to_remove)
+    pprint.pprint(to_remove)
+
+    max_cards = 140
+
+    print 'Memory utilization: %d / %d (%.2f%%)' % (
+        len(cur), max_cards, 100.0 * len(cur) / max_cards
+        )
+
+    print('Press y to confirm removal')
+
+    if raw_input().lower().strip() == 'y':
+        for h, u in to_remove:
+            print('Removing %s' % h)
+            revoke_hash(token, h, proto=proto)
+
+    for h, u in to_add:
+        print('Adding %s' % u)
+        add(token, h, proto=proto)
