@@ -12,7 +12,7 @@ char pc_bytes[PC_MAX_BYTES+1];
 /** Flag set when next scan should send mid. */
 boolean pc_send_flag = false;
 /** Global varuiable that holds last MAC from PC. Length is 32 bytes, no termination. */
-unsigned char pc_mac[PC_MAC_SIZE];
+unsigned char pc_mac[PC_MAC_SIZE+1];
 
 // from doorman.ino
 extern unsigned char g_Hash[];
@@ -114,11 +114,12 @@ void pc_comm(){
     pc_bytes[PC_MAX_BYTES]=0;
 
     // Zero global hash
-    for (int i = 0; i < EMEM_HASH_SIZE; i++) {
+    for (int i = 0; i < EMEM_HASH_SIZE + 1; i++) {
       g_Hash[i] = 0;
     }
+
     // Zero given MAC
-    for (int i = 0; i < PC_MAC_SIZE; i++) {
+    for (int i = 0; i < PC_MAC_SIZE + 1; i++) {
       pc_mac[i] = 0;
     }
 
@@ -178,7 +179,11 @@ void pc_comm(){
     Serial.println(pc_bytes);
 #endif //DEBUG
     Sha256.initHmac((const uint8_t *)PC_MAC_SECRET, strlen(PC_MAC_SECRET));
-    Sha256.print(pc_bytes);
+
+    for (int i = 0 ; i < 1+1+1+4+1+EMEM_HASH_SIZE*2 ; i++) {
+        Sha256.write(pc_bytes[i]);
+    }
+
     uint8_t *expected_mac = Sha256.resultHmac();
     // anti-timing attack - xor all MAC bytes together, or-fold, check if null
     uint8_t mac_result = 0;

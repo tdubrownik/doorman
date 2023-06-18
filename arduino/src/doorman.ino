@@ -23,9 +23,11 @@
 
 // Global var
 /** Used to pass current command hash **/
-unsigned char g_Hash[EMEM_HASH_SIZE];
+unsigned char g_Hash[EMEM_HASH_SIZE + 1];
 /** Door control pin. */
 #define DOOR_CTRN (10)
+/** Debug LED pin. */
+#define DEBUG_LED (13)
 
 // From pc.cpp
 /** Flag set when next scan should send mid. */
@@ -33,6 +35,13 @@ extern boolean pc_send_flag;
 
 /** Setup function. */
 void setup()  {
+  pinMode(DEBUG_LED, OUTPUT);
+  digitalWrite(DEBUG_LED, HIGH);
+  delay(500);
+  digitalWrite(DEBUG_LED, LOW);
+  delay(500);
+  digitalWrite(DEBUG_LED, HIGH);
+  delay(500);
   Serial.begin(19200);
   keypad_init();
   #ifdef DEBUG
@@ -43,6 +52,11 @@ void setup()  {
 #ifdef DEBUG
   Serial.println("Ready");
 #endif //DEBUG
+  digitalWrite(DEBUG_LED, HIGH);
+  delay(500);
+  digitalWrite(DEBUG_LED, LOW);
+  delay(500);
+  digitalWrite(DEBUG_LED, HIGH);
 }
 /** Idle. */
 #define STATE_IDLE 0
@@ -67,6 +81,7 @@ void loop(){
   while (1) {
     switch (state){
       case STATE_PIN:
+        digitalWrite(DEBUG_LED, millis() % 200 > 100);
         if (keypad_pin_get(&pin)){
           //Pin code was read
           //Check if authorised
@@ -82,7 +97,8 @@ void loop(){
           Serial.println(str);
 #endif //DEBUG
           Sha256.init();
-          Sha256.print(str);
+          for (int i = 0 ; i < 8+1+8; i++) Sha256.write(str[i]);
+
           uint8_t * hash=Sha256.result();
 #ifdef DEBUG
           pc_print_hash(hash);
@@ -148,6 +164,7 @@ void loop(){
         }
         break;
       case STATE_MIFARE:
+        digitalWrite(DEBUG_LED, millis() % 1000 > 500);
         if (rf_comm(&rfid)){
 #ifdef DEBUG
           Serial.println("Got rfid: ");
