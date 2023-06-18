@@ -1,13 +1,13 @@
 /**
- * 
+ *
  * Simple RFID lock controller, based on:
  *  RFID Eval 13.56MHz Shield example sketch v10
  *  Aaron Weiss, aaron at sparkfun dot com
  *  OSHW license: http://freedomdefined.org/OSHW
- * 
+ *
  * @note Works with 13.56MHz MiFare 1k tags.
- * @note RFID Reset attached to D13 (aka status LED)  
- * @note Be sure include the NewSoftSerial lib, http://arduiniana.org/libraries/newsoftserial/  
+ * @note RFID Reset attached to D13 (aka status LED)
+ * @note Be sure include the NewSoftSerial lib, http://arduiniana.org/libraries/newsoftserial/
  * @note Sha256 library is required, http://code.google.com/p/cryptosuite/
  */
 
@@ -40,9 +40,9 @@ void setup()  {
   #endif
   rf_init();
   pinMode(DOOR_CTRN, OUTPUT);
-#ifdef DEBUG  
+#ifdef DEBUG
   Serial.println("Ready");
-#endif //DEBUG  
+#endif //DEBUG
 }
 /** Idle. */
 #define STATE_IDLE 0
@@ -60,33 +60,33 @@ unsigned long state_time=0;
 #define STATE_DOORTIME 4000
 
 /** Main loop. */
-void loop(){     
+void loop(){
   unsigned long pin=0;
-  unsigned long rfid=0;  
+  unsigned long rfid=0;
   unsigned long current_time;
   while (1) {
     switch (state){
       case STATE_PIN:
         if (keypad_pin_get(&pin)){
-          //Pin code was read 
-          //Check if authorised      
-          char str[8+1+8+1];             
-          for(int ii=0;ii<8+1+8+1;ii++) str[ii]=0;       
+          //Pin code was read
+          //Check if authorised
+          char str[8+1+8+1];
+          for(int ii=0;ii<8+1+8+1;ii++) str[ii]=0;
           snprintf(str,8+1+8+1,"%08lx:%08lx",pin,rfid);
-#ifdef DEBUG          
+#ifdef DEBUG
           Serial.print("Got pin: ");
-          Serial.print(pin);        
+          Serial.print(pin);
           Serial.print(" and rfid: ");
           Serial.println(rfid);
           Serial.print("Rfid and pin: ");
           Serial.println(str);
-#endif //DEBUG         
-          Sha256.init();         
-          Sha256.print(str);          
+#endif //DEBUG
+          Sha256.init();
+          Sha256.print(str);
           uint8_t * hash=Sha256.result();
-#ifdef DEBUG          
+#ifdef DEBUG
           pc_print_hash(hash);
-          Serial.println();          
+          Serial.println();
 #endif //DEBUG
           //react
           unsigned int fid = emem_find_data(hash);
@@ -98,23 +98,23 @@ void loop(){
             //"success" beep
             keypad_pin_ok();
             //open door
-#ifdef DEBUG            
-            Serial.println("Door opened");           
-#endif //DEBUG
-            digitalWrite(DOOR_CTRN, HIGH);  
-            delay(STATE_DOORTIME);                  
-            digitalWrite(DOOR_CTRN, LOW); 
 #ifdef DEBUG
-            Serial.println("Door closed");           
-#endif //DEBUG            
+            Serial.println("Door opened");
+#endif //DEBUG
+            digitalWrite(DOOR_CTRN, HIGH);
+            delay(STATE_DOORTIME);
+            digitalWrite(DOOR_CTRN, LOW);
+#ifdef DEBUG
+            Serial.println("Door closed");
+#endif //DEBUG
           } else {
             //"error" beep
             keypad_pin_wrong();
 #ifdef DEBUG
-            Serial.println("Wrong rfid or pin");            
+            Serial.println("Wrong rfid or pin");
 #endif //DEBUG
           }
-          
+
           pin=0;
           rfid=0;
           state=STATE_IDLE;
@@ -125,9 +125,9 @@ void loop(){
            if (current_time-state_time>STATE_TIMEOUT){
              //turn keypad off
              keypad_off();
-#ifdef DEBUG             
-             Serial.println("Keyboard timeout");             
-#endif //DEBUG             
+#ifdef DEBUG
+             Serial.println("Keyboard timeout");
+#endif //DEBUG
              pin=0;
              rfid=0;
              state=STATE_IDLE;
@@ -137,36 +137,36 @@ void loop(){
            if (state_time-current_time>STATE_TIMEOUT){
              //turn keypad off
              keypad_off();
-#ifdef DEBUG             
-             Serial.println("Keyboard timeout");             
-#endif //DEBUG            
+#ifdef DEBUG
+             Serial.println("Keyboard timeout");
+#endif //DEBUG
              pin=0;
              rfid=0;
              state=STATE_IDLE;
              continue;
-           }        
+           }
         }
         break;
       case STATE_MIFARE:
         if (rf_comm(&rfid)){
-#ifdef DEBUG             
+#ifdef DEBUG
           Serial.println("Got rfid: ");
           Serial.println(rfid,HEX);
-#endif //DEBUG                      
+#endif //DEBUG
           //Rfid was read
-          state=STATE_PIN;           
+          state=STATE_PIN;
           state_time=millis();
         }
-        break; 
-      case STATE_IDLE:    
-      default:      
+        break;
+      case STATE_IDLE:
+      default:
         pin=0;
         rfid=0;
         state=STATE_MIFARE;
-        break; 
-    }  
+        break;
+    }
     //Communication with PC (optional).
-    pc_comm();    
+    pc_comm();
   }
 }
 

@@ -1,7 +1,7 @@
 //Defines
-/** 
- * Record size. 
- * @todo This should be EMEM_HASH_SIZE+1, but since we are low on epprom we save and check only first 6 bytes of hash. 
+/**
+ * Record size.
+ * @todo This should be EMEM_HASH_SIZE+1, but since we are low on epprom we save and check only first 6 bytes of hash.
  */
 #define EMEM_RECORD_SIZE (7)
 /** First record ID. */

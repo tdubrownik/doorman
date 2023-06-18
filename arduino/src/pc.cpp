@@ -33,11 +33,11 @@ boolean pc_parse(){
     if (in=='$') {
       //Start condition
       pc_idx=0;
-      pc_bytes[pc_idx]=in; 
+      pc_bytes[pc_idx]=in;
       continue;
-    } 
+    }
     if (in=='\n'){
-#ifdef DEBUG      
+#ifdef DEBUG
       Serial.print("Got newline ");
       Serial.println(pc_idx);
 #endif //DEBUG
@@ -58,7 +58,7 @@ boolean pc_parse(){
     } else{
       pc_idx=0;
       continue;
-    }     
+    }
   }
   return false;
 }
@@ -89,7 +89,7 @@ void pc_print(char code,unsigned int id,unsigned char * data) {
   Serial.print(buf);
   pc_print_hash(data);
   snprintf(buf,12,",%08lx\n",token);
-  Serial.print(buf); 
+  Serial.print(buf);
 }
 
 /**
@@ -101,11 +101,11 @@ void pc_print(char code,unsigned int id,unsigned char * data) {
  *  e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
  * where code is a command code, hash/data is a 32-byte piece of data in
  * lowercase hexdigest, and token is a 32-byte MAC in lowecase hexdigest
- *   
+ *
  */
-void pc_comm(){  
+void pc_comm(){
   if (pc_parse()){
-#ifdef DEBUG    
+#ifdef DEBUG
     Serial.print("I received: ");
     for (int ii=0;ii<PC_MAX_BYTES;ii++) {
       Serial.print(pc_bytes[ii]);
@@ -121,7 +121,7 @@ void pc_comm(){
     for (int i = 0; i < PC_MAC_SIZE; i++) {
       pc_mac[i] = 0;
     }
- 
+
     // Get code
     char code = pc_bytes[1];
     // Get ID
@@ -150,8 +150,8 @@ void pc_comm(){
       hex[2] = 0;
       sscanf(hex, "%02x", pc_mac + i);
     }
-      
-#ifdef DEBUG    
+
+#ifdef DEBUG
     Serial.print("CODE: ");
     Serial.print(code, HEX);
     Serial.print(", ID: ");
@@ -160,15 +160,15 @@ void pc_comm(){
     for (int i = 0; i < EMEM_HASH_SIZE; i++) {
       Serial.print(g_Hash[i], HEX);
       Serial.print(',');
-    }  
-    Serial.print(" TOKEN: ");    
+    }
+    Serial.print(" TOKEN: ");
     for (int i = 0; i < PC_MAC_SIZE; i++) {
       Serial.print(pc_mac[i], HEX);
       if (i == PC_MAC_SIZE - 1)
         Serial.println("");
       else
         Serial.print(',');
-    }  
+    }
 #endif
 
     // Check MAC
@@ -193,15 +193,15 @@ void pc_comm(){
     }
     Serial.println("");
 #endif //DEBUG
-          
+
     if (mac_result != 0){
-#ifdef DEBUG    
+#ifdef DEBUG
       Serial.println("WRONG TOKEN");
 #endif //DEBUG
-      pc_print('E', id, g_Hash);  
+      pc_print('E', id, g_Hash);
       return;
     }
-   
+
     if (code == 'A' || code == 'a') {
       //Add
       if (id == 0) {
@@ -211,41 +211,41 @@ void pc_comm(){
         //Already have this data
 #ifdef DEBUG
         Serial.println("ADD FAILED, USER EXISTS");
-#endif 
+#endif
         pc_print('E', id, g_Hash);
         return;
       }
       if (emem_set_record(id, g_Hash)) {
-#ifdef DEBUG    
+#ifdef DEBUG
         Serial.println("ADD DONE");
 #endif //DEBUG
-        pc_print('C', id, g_Hash);  
+        pc_print('C', id, g_Hash);
         return;
       }
 
-#ifdef DEBUG    
+#ifdef DEBUG
       Serial.println("ADD FAILED");
 #endif //DEBUG
-      pc_print('E', id, g_Hash);  
+      pc_print('E', id, g_Hash);
       return;
     }
-    
+
     if (pc_bytes[1]=='R' || pc_bytes[1]=='r') {
       if (id == 0)
         id=emem_find_data(g_Hash);
       if (emem_del_record(id)){
-#ifdef DEBUG    
-        Serial.println("REVOKE DONE");  
-#endif //DEBUG    
+#ifdef DEBUG
+        Serial.println("REVOKE DONE");
+#endif //DEBUG
         pc_print('K',id,g_Hash);
       } else {
-#ifdef DEBUG    
+#ifdef DEBUG
         Serial.println("REVOKE FAILED");
-#endif //DEBUG    
+#endif //DEBUG
         pc_print('E',id,g_Hash);
       }
     } else if (pc_bytes[1]=='Z' || pc_bytes[1]=='z'){
-      //Zero eeprom       
+      //Zero eeprom
       Serial.println("ZERO");
       for (int ii=0;ii<1024;ii++){
         EEPROM.write(ii,0);
@@ -255,18 +255,18 @@ void pc_comm(){
       }
       Serial.println();
       Serial.print("DONE");
-      Serial.println();      
+      Serial.println();
     } else if (pc_bytes[1]=='P' || pc_bytes[1]=='p'){
-      emem_print(); 
+      emem_print();
     } else if (pc_bytes[1]=='G' || pc_bytes[1]=='g'){
-       pc_send_flag=true; 
+       pc_send_flag=true;
 #ifdef DEBUG
        Serial.println("send flag true");
 #endif
     } else {
-#ifdef DEBUG      
+#ifdef DEBUG
       Serial.println("Unknown command");
-#endif //DEBUG      
+#endif //DEBUG
     }
   }
 }

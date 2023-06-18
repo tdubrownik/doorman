@@ -31,28 +31,28 @@ void keypad_init() {
  * @param p_pin Pointer to space for pin.
  * @return True if code was red.
  */
-boolean keypad_pin_get(unsigned long  * p_pin) {  
+boolean keypad_pin_get(unsigned long  * p_pin) {
   static byte byte_cntr=0;
   byte k;
 #ifdef DEBUG_KEYPAD_SIM
   (*p_pin)=1234;
   return true;
-#endif 
+#endif
   switch (keypad_state){
     case SEND:
       //ask for pin
-      keypad.print("#P");      
+      keypad.print("#P");
       byte_cntr=0;//clear input buffer
       keypad_state=WAIT_RESP;
       break;
-      
+
     case WAIT_RESP:
       //wait for response
       if( keypad.available() ){
         //store byte
         keypad_bytes[byte_cntr]=keypad.read();
-        byte_cntr++;  
-        
+        byte_cntr++;
+
         if(byte_cntr==KEYPAD_RESP_SIZE){
           //resp. received - store pin
           k=sscanf(keypad_bytes,"#%d",p_pin);
@@ -67,7 +67,7 @@ boolean keypad_pin_get(unsigned long  * p_pin) {
        keypad_state=SEND;
        byte_cntr=0;
        break;
-  } 
+  }
   return false;
 }
 
@@ -81,14 +81,14 @@ void keypad_off(void) {
 
 /**
  * Pin correct command.
- */ 
+ */
 void keypad_pin_ok() {
   keypad.print("#R");
 }
 
 /**
  * Pin wrong  command.
- */ 
+ */
 void keypad_pin_wrong() {
   keypad.print("#W");
 }

@@ -14,8 +14,8 @@ void rf_init(void) {
 #ifdef DEBUG
   Serial.println("firm?");
     uint32_t versiondata = rfid.getFirmwareVersion();
-    Serial.print("Found chip PN5"); Serial.println((versiondata>>24) & 0xFF, HEX); 
-    Serial.print("Firmware ver. "); Serial.print((versiondata>>16) & 0xFF, DEC); 
+    Serial.print("Found chip PN5"); Serial.println((versiondata>>24) & 0xFF, HEX);
+    Serial.print("Firmware ver. "); Serial.print((versiondata>>16) & 0xFF, DEC);
     Serial.print('.'); Serial.println((versiondata>>8) & 0xFF, DEC);
 #endif //DEBUG
   rfid.setPassiveActivationRetries(0xFF);
@@ -46,7 +46,7 @@ boolean rf_comm(unsigned long * p_rfid) {
       unsigned long data=(long(mifareBytes[3])<<24)|(long(mifareBytes[2])<<16)|(long(mifareBytes[1])<<8)|(long(mifareBytes[0]));
       (*p_rfid) = data;
       return true;
-  } 
+  }
   return false;
 }
 
