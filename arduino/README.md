@@ -1,17 +1,21 @@
 Instructions
 ============
 
-You will need [ino](http://inotool.org/)
+You will need [platformio](https://platformio.org/)
 
 To build:
 
-    $ ino build
+```sh
+pio run
+```
 
 To upload:
-
-    $ ino upload
+```sh
+pio run -t upload
+```
 
 To comm (for debug):
 
-    $ ino serial -b 19200 -- --echo --omap crlf
-
+```sh
+pio run -t monitor
+```
